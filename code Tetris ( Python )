@@ -1,0 +1,205 @@
+import random
+import time
+import curses
+
+H = 20
+W = 15
+
+board = [[' '] * W for _ in range(H)]
+
+blocks = [
+    # 0
+    [[' ','I',' ',' '],
+     [' ','I',' ',' '],
+     [' ','I',' ',' '],
+     [' ','I',' ',' ']],
+    # 1
+    [[' ','I',' ',' '],
+     [' ','I',' ',' '],
+     [' ','I',' ',' '],
+     [' ','I',' ',' ']],
+    # 2
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 3
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 4
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 5
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 6
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 7
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 8
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 9
+    [[' ',' ',' ',' '],
+     ['I','I','I','I'],
+     [' ',' ',' ',' '],
+     [' ',' ',' ',' ']],
+    # 10
+    [[' ',' ',' ',' '],
+     [' ','O','O',' '],
+     [' ','O','O',' '],
+     [' ',' ',' ',' ']],
+    # 11
+    [[' ',' ',' ',' '],
+     [' ','T',' ',' '],
+     ['T','T','T',' '],
+     [' ',' ',' ',' ']],
+    # 12
+    [[' ',' ',' ',' '],
+     [' ','S','S',' '],
+     ['S','S',' ',' '],
+     [' ',' ',' ',' ']],
+    # 13
+    [[' ',' ',' ',' '],
+     ['Z','Z',' ',' '],
+     [' ','Z','Z',' '],
+     [' ',' ',' ',' ']],
+    # 14
+    [[' ',' ',' ',' '],
+     ['J',' ',' ',' '],
+     ['J','J','J',' '],
+     [' ',' ',' ',' ']],
+    # 15
+    [[' ',' ',' ',' '],
+     [' ',' ','L',' '],
+     ['L','L','L',' '],
+     [' ',' ',' ',' ']],
+]
+
+x = 4
+y = 0
+b = 1
+
+
+def board_del_block():
+    for i in range(4):
+        for j in range(4):
+            if blocks[b][i][j] != ' ' and y + j < H:
+                board[y + i][x + j] = ' '
+
+
+def block2board():
+    for i in range(4):
+        for j in range(4):
+            if blocks[b][i][j] != ' ':
+                board[y + i][x + j] = blocks[b][i][j]
+
+
+def init_board():
+    for i in range(H):
+        for j in range(W):
+            if i == H - 1 or j == 0 or j == W - 1:
+                board[i][j] = '#'
+            else:
+                board[i][j] = ' '
+
+
+def draw(stdscr):
+    stdscr.move(0, 0)
+    for i in range(H):
+        for j in range(W):
+            stdscr.addch(board[i][j])
+        if i < H - 1:
+            stdscr.addch('\n')
+    stdscr.refresh()
+
+
+def can_move(dx, dy):
+    for i in range(4):
+        for j in range(4):
+            if blocks[b][i][j] != ' ':
+                tx = x + j + dx
+                ty = y + i + dy
+                if tx < 1 or tx >= W - 1 or ty >= H - 1:
+                    return False
+                if board[ty][tx] != ' ':
+                    return False
+    return True
+
+
+def remove_line(stdscr):
+    i = H - 2
+    while i > 0:
+        j = 0
+        while j < W - 1:
+            if board[i][j] == ' ':
+                break
+            j += 1
+        if j == W - 1:
+            for ii in range(i, 0, -1):
+                for jj in range(W - 1):
+                    board[ii][jj] = board[ii - 1][jj]
+            draw(stdscr)
+            time.sleep(0.2)
+        else:
+            i -= 1
+
+
+def main(stdscr):
+    global x, y, b
+
+    curses.curs_set(0)
+    stdscr.nodelay(True)
+
+    random.seed()
+    b = random.randint(0, 6)
+
+    init_board()
+
+    while True:
+        board_del_block()
+
+        c = None
+        try:
+            c = stdscr.getkey()
+        except curses.error:
+            pass
+
+        if c == 'a' and can_move(-1, 0):
+            x -= 1
+        if c == 'd' and can_move(1, 0):
+            x += 1
+        if c == 'x' and can_move(0, 1):
+            y += 1
+        if c == 'q':
+            break
+
+        if can_move(0, 1):
+            y += 1
+        else:
+            block2board()
+            remove_line(stdscr)
+            x = 5
+            y = 0
+            b = random.randint(0, 6)
+
+        block2board()
+        draw(stdscr)
+        time.sleep(0.2)
+
+
+curses.wrapper(main)
