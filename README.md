@@ -2,7 +2,7 @@
 - Môn học: Kỹ năng nghề nghiệp SS004
 - Giáo viên: Ths Nguyễn Văn Toàn
 - Nhóm thực hiện: Cộng đồng sinh viên
-- Thành viên:
+- Thành viên:  
     Nguyễn Ngọc Linh - trưởng nhóm   
     Võ Trọng Kiên   
     Nguyễn Phan Kiều My  
