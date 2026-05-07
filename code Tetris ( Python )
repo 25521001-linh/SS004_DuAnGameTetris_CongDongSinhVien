@@ -7,107 +7,40 @@ W = 15
 
 board = [[' '] * W for _ in range(H)]
 
-blocks = [
-    # 0
-    [[' ','I',' ',' '],
-     [' ','I',' ',' '],
-     [' ','I',' ',' '],
-     [' ','I',' ',' ']],
-    # 1
-    [[' ','I',' ',' '],
-     [' ','I',' ',' '],
-     [' ','I',' ',' '],
-     [' ','I',' ',' ']],
-    # 2
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 3
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 4
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 5
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 6
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 7
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 8
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 9
-    [[' ',' ',' ',' '],
-     ['I','I','I','I'],
-     [' ',' ',' ',' '],
-     [' ',' ',' ',' ']],
-    # 10
-    [[' ',' ',' ',' '],
-     [' ','O','O',' '],
-     [' ','O','O',' '],
-     [' ',' ',' ',' ']],
-    # 11
-    [[' ',' ',' ',' '],
-     [' ','T',' ',' '],
-     ['T','T','T',' '],
-     [' ',' ',' ',' ']],
-    # 12
-    [[' ',' ',' ',' '],
-     [' ','S','S',' '],
-     ['S','S',' ',' '],
-     [' ',' ',' ',' ']],
-    # 13
-    [[' ',' ',' ',' '],
-     ['Z','Z',' ',' '],
-     [' ','Z','Z',' '],
-     [' ',' ',' ',' ']],
-    # 14
-    [[' ',' ',' ',' '],
-     ['J',' ',' ',' '],
-     ['J','J','J',' '],
-     [' ',' ',' ',' ']],
-    # 15
-    [[' ',' ',' ',' '],
-     [' ',' ','L',' '],
-     ['L','L','L',' '],
-     [' ',' ',' ',' ']],
+# Danh sách các khối cơ bản (7 khối chuẩn của Tetris)
+block_templates = [
+    [[' ', 'I', ' ', ' '], [' ', 'I', ' ', ' '], [' ', 'I', ' ', ' '], [' ', 'I', ' ', ' ']], # I
+    [[' ', ' ', ' ', ' '], [' ', 'O', 'O', ' '], [' ', 'O', 'O', ' '], [' ', ' ', ' ', ' ']], # O
+    [[' ', ' ', ' ', ' '], [' ', 'T', ' ', ' '], ['T', 'T', 'T', ' '], [' ', ' ', ' ', ' ']], # T
+    [[' ', ' ', ' ', ' '], [' ', 'S', 'S', ' '], ['S', 'S', ' ', ' '], [' ', ' ', ' ', ' ']], # S
+    [[' ', ' ', ' ', ' '], ['Z', 'Z', ' ', ' '], [' ', 'Z', 'Z', ' '], [' ', ' ', ' ', ' ']], # Z
+    [[' ', 'J', ' ', ' '], [' ', 'J', ' ', ' '], ['J', 'J', ' ', ' '], [' ', ' ', ' ', ' ']], # J
+    [[' ', 'L', ' ', ' '], [' ', 'L', ' ', ' '], [' ', 'L', 'L', ' '], [' ', ' ', ' ', ' ']]  # L
 ]
 
 x = 4
 y = 0
-b = 1
+current_block = []
 
+def rotate(block):
+    # Thuật toán xoay ma trận 90 độ: [hàng][cột] -> [cột][đảo ngược hàng]
+    new_block = [[' ' for _ in range(4)] for _ in range(4)]
+    for r in range(4):
+        for c in range(4):
+            new_block[c][3 - r] = block[r][c]
+    return new_block
 
 def board_del_block():
     for i in range(4):
         for j in range(4):
-            if blocks[b][i][j] != ' ' and y + j < H:
+            if current_block[i][j] != ' ' and 0 <= y + i < H and 0 <= x + j < W:
                 board[y + i][x + j] = ' '
-
 
 def block2board():
     for i in range(4):
         for j in range(4):
-            if blocks[b][i][j] != ' ':
-                board[y + i][x + j] = blocks[b][i][j]
-
+            if current_block[i][j] != ' ' and 0 <= y + i < H and 0 <= x + j < W:
+                board[y + i][x + j] = current_block[i][j]
 
 def init_board():
     for i in range(H):
@@ -117,21 +50,19 @@ def init_board():
             else:
                 board[i][j] = ' '
 
-
 def draw(stdscr):
     stdscr.move(0, 0)
     for i in range(H):
-        for j in range(W):
-            stdscr.addch(board[i][j])
-        if i < H - 1:
-            stdscr.addch('\n')
+        line = "".join(board[i])
+        stdscr.addstr(i, 0, line)
     stdscr.refresh()
 
-
-def can_move(dx, dy):
+def can_move(dx, dy, block_to_check=None):
+    if block_to_check is None:
+        block_to_check = current_block
     for i in range(4):
         for j in range(4):
-            if blocks[b][i][j] != ' ':
+            if block_to_check[i][j] != ' ':
                 tx = x + j + dx
                 ty = y + i + dy
                 if tx < 1 or tx >= W - 1 or ty >= H - 1:
@@ -140,34 +71,26 @@ def can_move(dx, dy):
                     return False
     return True
 
-
 def remove_line(stdscr):
     i = H - 2
     while i > 0:
-        j = 0
-        while j < W - 1:
-            if board[i][j] == ' ':
-                break
-            j += 1
-        if j == W - 1:
+        if ' ' not in board[i][1:-1]: # Kiểm tra dòng đầy (bỏ qua biên #)
             for ii in range(i, 0, -1):
-                for jj in range(W - 1):
+                for jj in range(1, W - 1):
                     board[ii][jj] = board[ii - 1][jj]
             draw(stdscr)
-            time.sleep(0.2)
+            time.sleep(0.1)
         else:
             i -= 1
 
-
 def main(stdscr):
-    global x, y, b
+    global x, y, current_block
 
     curses.curs_set(0)
     stdscr.nodelay(True)
-
     random.seed()
-    b = random.randint(0, 6)
-
+    
+    current_block = random.choice(block_templates)
     init_board()
 
     while True:
@@ -176,30 +99,38 @@ def main(stdscr):
         c = None
         try:
             c = stdscr.getkey()
-        except curses.error:
+        except:
             pass
 
+        # Điều khiển
         if c == 'a' and can_move(-1, 0):
             x -= 1
-        if c == 'd' and can_move(1, 0):
+        elif c == 'd' and can_move(1, 0):
             x += 1
-        if c == 'x' and can_move(0, 1):
+        elif c == 'x' and can_move(0, 1):
             y += 1
-        if c == 'q':
+        elif c == 'w': # Nút xoay
+            rotated = rotate(current_block)
+            if can_move(0, 0, rotated):
+                current_block = rotated
+        elif c == 'q':
             break
 
+        # Trọng lực (tự rơi)
         if can_move(0, 1):
             y += 1
         else:
             block2board()
             remove_line(stdscr)
-            x = 5
+            x = 4
             y = 0
-            b = random.randint(0, 6)
+            current_block = random.choice(block_templates)
+            # Kiểm tra thua cuộc
+            if not can_move(0, 0):
+                break
 
         block2board()
         draw(stdscr)
         time.sleep(0.2)
-
 
 curses.wrapper(main)
