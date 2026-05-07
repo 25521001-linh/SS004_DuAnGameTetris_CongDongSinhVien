@@ -3,11 +3,11 @@
 - Giáo viên: Ths Nguyễn Văn Toàn
 - Nhóm thực hiện: Cộng đồng sinh viên
 - Thành viên:
-    Nguyễn Ngọc Linh - trưởng nhóm 
-    Võ Trọng Kiên 
-    Nguyễn Phan Kiều My
-    La Duy Khải
-    Nguyễn Minh Khuê
+    Nguyễn Ngọc Linh - trưởng nhóm   
+    Võ Trọng Kiên   
+    Nguyễn Phan Kiều My  
+    La Duy Khải  
+    Nguyễn Minh Khuê  
 
 # 🧱 Tetris Building
 
