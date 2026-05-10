@@ -7,7 +7,9 @@ W = 15
 
 board = [[' '] * W for _ in range(H)]
 
+score = 0  # 1. Khởi tạo biến điểm số
 # Danh sách các khối cơ bản (7 khối chuẩn của Tetris)
+
 block_templates = [
     [[' ', 'I', ' ', ' '], [' ', 'I', ' ', ' '], [' ', 'I', ' ', ' '], [' ', 'I', ' ', ' ']], # I
     [[' ', ' ', ' ', ' '], [' ', 'O', 'O', ' '], [' ', 'O', 'O', ' '], [' ', ' ', ' ', ' ']], # O
@@ -55,6 +57,15 @@ def draw(stdscr):
     for i in range(H):
         line = "".join(board[i])
         stdscr.addstr(i, 0, line)
+    
+    # 3. Hiển thị điểm số ở bên cạnh bảng game
+    stdscr.addstr(2, W + 2, f"SCORE: {score}")
+    stdscr.addstr(4, W + 2, "Controls:")
+    stdscr.addstr(5, W + 2, "A/D: Left/Right")
+    stdscr.addstr(6, W + 2, "W: Rotate")
+    stdscr.addstr(7, W + 2, "X: Soft Drop")
+    stdscr.addstr(8, W + 2, "Q: Quit")
+    
     stdscr.refresh()
 
 def can_move(dx, dy, block_to_check=None):
@@ -72,9 +83,12 @@ def can_move(dx, dy, block_to_check=None):
     return True
 
 def remove_line(stdscr):
+    global score
+    lines_cleared = 0
     i = H - 2
     while i > 0:
         if ' ' not in board[i][1:-1]: # Kiểm tra dòng đầy (bỏ qua biên #)
+            lines_cleared += 1
             for ii in range(i, 0, -1):
                 for jj in range(1, W - 1):
                     board[ii][jj] = board[ii - 1][jj]
@@ -82,9 +96,15 @@ def remove_line(stdscr):
             time.sleep(0.1)
         else:
             i -= 1
+    
+    # 2. Công thức tính điểm: 1 dòng=100, 2 dòng=300, 3 dòng=500, 4 dòng=800
+    if lines_cleared == 1: score += 100
+    elif lines_cleared == 2: score += 300
+    elif lines_cleared == 3: score += 500
+    elif lines_cleared == 4: score += 800
 
 def main(stdscr):
-    global x, y, current_block
+    global x, y, current_block, score
 
     curses.curs_set(0)
     stdscr.nodelay(True)
@@ -109,7 +129,8 @@ def main(stdscr):
             x += 1
         elif c == 'x' and can_move(0, 1):
             y += 1
-        elif c == 'w': # Nút xoay
+            score += 1 # Thưởng nhẹ 1 điểm khi người chơi chủ động hạ khối nhanh
+        elif c == 'w':
             rotated = rotate(current_block)
             if can_move(0, 0, rotated):
                 current_block = rotated
@@ -127,6 +148,11 @@ def main(stdscr):
             current_block = random.choice(block_templates)
             # Kiểm tra thua cuộc
             if not can_move(0, 0):
+                # Hiển thị thông báo kết thúc
+                stdscr.addstr(H // 2, W // 4, " GAME OVER! ")
+                stdscr.addstr(H // 2 + 1, W // 4, f" Total: {score} ")
+                stdscr.refresh()
+                time.sleep(2)
                 break
 
         block2board()
