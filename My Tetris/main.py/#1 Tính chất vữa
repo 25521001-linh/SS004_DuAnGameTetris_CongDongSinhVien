@@ -1,6 +1,5 @@
 import pygame
 import random
-import time
 import sys
 
 pygame.init()
@@ -17,19 +16,45 @@ FPS = 60
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
-RED = (200, 50, 50)        # Gạch - ĐỎ
-DARK_GRAY = (80, 80, 80)   # Vữa - XÁM ĐẬM  
-BLUE = (50, 150, 255)      # Gạch dính vữa - XANH DƯƠNG
-BROWN = (139, 69, 19)      # Vữa khô (vữa + vữa)
-GREEN = (0, 255, 0)        # Gạch siêu cứng (gạch + gạch dính)
-PURPLE = (150, 50, 200)    # Random fill
+DARK_GRAY = (80, 80, 80)
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Tetris - Gạch & Vữa v2.1 - 3:1")
-clock = pygame.time.Clock()
-font = pygame.font.Font(None, 36)
 
-# Board state
+
+def load_tile(filename):
+    try:
+        img = pygame.image.load(f"assets/{filename}").convert_alpha()
+        return pygame.transform.scale(img, (CELL_SIZE, CELL_SIZE))
+    except:
+        surf = pygame.Surface((CELL_SIZE, CELL_SIZE))
+        surf.fill(GRAY)
+        return surf
+
+textures = {
+    'B': load_tile("Gach01.png"),
+    'G': load_tile("Gach02.png"),
+    'R': load_tile("Gach03.png"),
+    'M': load_tile("Vuamem.png"),
+    'V': load_tile("Vuacung.png"),
+    'S': load_tile("Gachcung.png"),
+    'X': load_tile("Vuafill.png"),  
+}
+
+def draw_board():
+    for i in range(H):
+        for j in range(W):
+            cell = board[i][j]
+            rect = pygame.Rect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+            
+            if cell in textures:
+                screen.blit(textures[cell], rect)
+            elif cell == '#':
+                pygame.draw.rect(screen, DARK_GRAY, rect)
+            # Ô trống không vẽ
+            
+            pygame.draw.rect(screen, (40, 40, 40), rect, 1)  # viền
+
+# Board state 
 board = [[' '] * W for _ in range(H)]
 mortar_placed_time = [[0] * W for _ in range(H)]
 block_durability = [[1] * W for _ in range(H)]
@@ -56,6 +81,11 @@ class Block:
         self.x = W // 2 - 2
         self.y = 0
         
+        if is_brick:
+            self.brick_type = random.choice(['B', 'G', 'R'])
+        else:
+            self.brick_type = 'M'
+        
     def rotate(self):
         rotated = list(zip(*self.shape[::-1]))
         self.shape = [list(row) for row in rotated]
@@ -68,7 +98,7 @@ def init_board():
             else:
                 board[i][j] = ' '
 
-def can_move(block, dx, dy):
+def can_move(block, dx, dy):         
     for i, row in enumerate(block.shape):
         for j, cell in enumerate(row):
             if cell != ' ':
@@ -79,8 +109,7 @@ def can_move(block, dx, dy):
                     return False
     return True
 
-def place_block(block):
-    """Đặt block và set thời gian cho vữa (kể cả block đầu tiên)"""
+def place_block(block):               
     for i, row in enumerate(block.shape):
         for j, cell in enumerate(row):
             if cell != ' ':
@@ -88,21 +117,19 @@ def place_block(block):
                 if 0 <= y_pos < H and 0 <= x_pos < W:
                     current_time = pygame.time.get_ticks()
                     
-                    if not block.is_brick:  # VỮA - luôn set thời gian
+                    if not block.is_brick:
                         board[y_pos][x_pos] = 'M'
-                        mortar_placed_time[y_pos][x_pos] = current_time  # BẮT ĐẦU ĐẾM 3.5s
-                    else:  # GẠCH
-                        board[y_pos][x_pos] = 'B'
-                        # Kiểm tra vữa bên dưới NGAY LẬP TỨC
+                        mortar_placed_time[y_pos][x_pos] = current_time
+                    else:
+                        board[y_pos][x_pos] = block.brick_type   
                         if (y_pos + 1 < H and board[y_pos + 1][x_pos] == 'M'):
-                            board[y_pos + 1][x_pos] = 'X'  # Gạch dính vữa
+                            board[y_pos + 1][x_pos] = 'X'
                             block_durability[y_pos + 1][x_pos] = 2
-                            board[y_pos][x_pos] = 'B'  # Gạch vẫn ở trên
+
 
 def find_falling_brick_above(i, j):
-    """Tìm gạch nằm TRÊN vữa tại (i,j)"""
     for above_i in range(i - 1, -1, -1):
-        if board[above_i][j] in ['B', 'S']:
+        if board[above_i][j] in ['B', 'G', 'R', 'S']:
             return above_i
     return None
 
@@ -111,7 +138,6 @@ def fill_random_hole(i, j):
         board[i][j] = 'R'
 
 def handle_mortar_flow():
-    """Xử lý vữa chảy + tương tác"""
     current_time = pygame.time.get_ticks()
     for i in range(H - 2, 0, -1):
         for j in range(1, W - 1):
@@ -120,44 +146,36 @@ def handle_mortar_flow():
                 
                 below_i, below_j = i + 1, j
                 
-                # LOGIC CHÍNH:
-                if board[below_i][below_j] == ' ':  # Trống
-                    # Gạch trên rơi theo
+                if board[below_i][below_j] == ' ':  
                     brick_above = find_falling_brick_above(i, j)
                     if brick_above is not None:
                         board[brick_above][j] = ' '
-                        board[brick_above + 1][j] = 'B'
-                    
-                    # Vữa chảy xuống
+                        board[brick_above + 1][j] = board[brick_above + 1][j]
                     board[below_i][below_j] = 'M'
                     mortar_placed_time[below_i][below_j] = current_time
                     board[i][j] = ' '
                     mortar_placed_time[i][j] = 0
-                    
-                    # Lấp random
                     fill_random_hole(i, j)
                     
-                elif board[below_i][below_j] == 'B':  # Gặp GẠCH -> DÍNH
-                    board[below_i][below_j] = 'X'  # Gạch dính vữa (2 lần clear)
+                elif board[below_i][below_j] == 'B':  
+                    board[below_i][below_j] = 'X'
                     block_durability[below_i][below_j] = 2
                     board[i][j] = ' '
                     
-                elif board[below_i][below_j] == 'M':  # Gặp VỮA -> KHỐI CỨNG
-                    board[below_i][below_j] = 'V'  # Vữa khô (1 lần clear)
+                elif board[below_i][below_j] == 'M':
+                    board[below_i][below_j] = 'V'
                     block_durability[below_i][below_j] = 1
                     board[i][j] = ' '
 
 def check_glue_reaction():
-    """Gạch mới rơi vào gạch dính vữa -> siêu cứng"""
     for i in range(H):
         for j in range(1, W - 1):
-            if board[i][j] == 'B':  # Gạch mới
+            if board[i][j] in ['B', 'G', 'R']:
                 for di in [-1, 0, 1]:
                     for dj in [-1, 0, 1]:
                         ni, nj = i + di, j + dj
-                        if (0 <= ni < H and 0 <= nj < W and 
-                            board[ni][nj] == 'X'):  # Gặp gạch dính vữa
-                            board[i][j] = 'S'  # Siêu cứng
+                        if (0 <= ni < H and 0 <= nj < W and board[ni][nj] == 'X'):
+                            board[i][j] = 'S'
                             block_durability[i][j] = 2
                             return
 
@@ -169,20 +187,17 @@ def remove_lines():
                        for j in range(1, W - 1))
         
         if full_line:
-            # Giảm độ bền TẤT CẢ cell trong dòng
             for j in range(1, W - 1):
                 if block_durability[i][j] > 1:
                     block_durability[i][j] -= 1
                     if block_durability[i][j] == 1:
-                        # Trở về trạng thái bình thường
                         if board[i][j] == 'S':
-                            board[i][j] = 'B'  # Siêu cứng -> gạch thường
+                            board[i][j] = 'B'
                         elif board[i][j] == 'X':
-                            board[i][j] = 'B'  # Dính vữa -> gạch thường
+                            board[i][j] = 'B'
                 else:
                     board[i][j] = ' '
             
-            # Shift lines
             for ii in range(i, 1, -1):
                 for j in range(1, W - 1):
                     board[ii][j] = board[ii-1][j]
@@ -193,33 +208,18 @@ def remove_lines():
             i -= 1
     return lines_removed
 
-def draw_board():
-    color_map = {
-        '#': GRAY,
-        'B': RED,      # 🟥 Gạch đỏ
-        'M': DARK_GRAY, # ⬜ Vữa xám đậm  
-        'X': BLUE,     # 🔵 Gạch dính vữa
-        'V': BROWN,    # 🟤 Vữa khô
-        'S': GREEN,    # 🟢 Siêu cứng
-        'R': PURPLE    # 🟣 Random fill
-    }
-    
-    for i in range(H):
-        for j in range(W):
-            rect = pygame.Rect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-            if board[i][j] in color_map:
-                pygame.draw.rect(screen, color_map[board[i][j]], rect)
-            pygame.draw.rect(screen, WHITE, rect, 1)
 
 def draw_block(block):
-    color = RED if block.is_brick else DARK_GRAY
     for i, row in enumerate(block.shape):
         for j, cell in enumerate(row):
             if cell != ' ':
                 rect = pygame.Rect((block.x + j) * CELL_SIZE, 
                                  (block.y + i) * CELL_SIZE, 
                                  CELL_SIZE, CELL_SIZE)
-                pygame.draw.rect(screen, color, rect)
+                # Sử dụng texture theo loại
+                cell_type = block.brick_type if block.is_brick else 'M'
+                if cell_type in textures:
+                    screen.blit(textures[cell_type], rect)
                 pygame.draw.rect(screen, WHITE, rect, 1)
 
 def draw_info(score, lines):
@@ -245,8 +245,7 @@ def main():
     fall_time = 0
     fall_speed = 500
     
-    # TỶ LỆ 3:1 GẠCH:VỮA
-    is_brick = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]  # 75% gạch
+    is_brick = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
     current_block = Block(is_brick)
     
     running = True
@@ -275,7 +274,6 @@ def main():
                 elif event.key in (pygame.K_DOWN, pygame.K_s):
                     fall_speed = 50
         
-        # Auto fall
         if current_time - fall_time > fall_speed:
             if can_move(current_block, 0, 1):
                 current_block.y += 1
@@ -284,7 +282,6 @@ def main():
                 lines_removed = remove_lines()
                 score += lines_removed * 100
                 
-                # TỶ LỆ 3:1 GẠCH:VỮA
                 is_brick = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
                 current_block = Block(is_brick)
                 fall_speed = 500
