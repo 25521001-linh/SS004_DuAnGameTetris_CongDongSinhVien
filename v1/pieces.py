@@ -1,137 +1,128 @@
-# pieces.py — Định nghĩa 7 tetromino chuẩn + hàm xoay
-
-# Mỗi piece là list 4 hàng × 4 cột, ký tự ' ' = trống, chữ cái = ô có gạch.
-# Chuẩn Tetris Guideline (SRS spawn orientation).
+# pieces.py — 7 Tetromino + khối Vữa (M) + hàm xoay
 
 PIECES = {
     'I': [
-        [' ',' ',' ',' '],
-        ['I','I','I','I'],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [0,0,0,0],
+        [1,1,1,1],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
     'O': [
-        [' ','O','O',' '],
-        [' ','O','O',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [0,1,1,0],
+        [0,1,1,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
     'T': [
-        [' ','T',' ',' '],
-        ['T','T','T',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [0,1,0,0],
+        [1,1,1,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
     'S': [
-        [' ','S','S',' '],
-        ['S','S',' ',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [0,1,1,0],
+        [1,1,0,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
     'Z': [
-        ['Z','Z',' ',' '],
-        [' ','Z','Z',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [1,1,0,0],
+        [0,1,1,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
     'J': [
-        ['J',' ',' ',' '],
-        ['J','J','J',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [1,0,0,0],
+        [1,1,1,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
     'L': [
-        [' ',' ','L',' '],
-        ['L','L','L',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [0,0,1,0],
+        [1,1,1,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
-    # Mortar piece — hình dạng giống T (có thể random I/T/O)
+    # Vữa — dùng hình T (theo GDD, vữa cũng có hình dạng tetromino)
     'M': [
-        [' ','M',' ',' '],
-        ['M','M','M',' '],
-        [' ',' ',' ',' '],
-        [' ',' ',' ',' '],
+        [0,1,0,0],
+        [1,1,1,0],
+        [0,0,0,0],
+        [0,0,0,0],
     ],
 }
 
-# Danh sách các loại piece gạch (không bao gồm Mortar)
-BRICK_TYPES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
-
-# Danh sách các loại piece vữa
+BRICK_TYPES  = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 MORTAR_TYPES = ['M']
 
 
 def rotate_cw(matrix):
-    """Xoay ma trận 4×4 theo chiều kim đồng hồ 90°.
-    
-    rotated[j][3-i] = original[i][j]
-    Trả về ma trận mới (không thay đổi bản gốc).
-    """
-    size = len(matrix)  # luôn là 4
-    rotated = [[' '] * size for _ in range(size)]
-    for i in range(size):
-        for j in range(size):
-            rotated[j][size - 1 - i] = matrix[i][j]
+    """Xoay ma trận 4×4 theo chiều kim đồng hồ 90°."""
+    n = len(matrix)
+    rotated = [[0]*n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            rotated[j][n - 1 - i] = matrix[i][j]
     return rotated
 
 
-def get_cells(matrix):
-    """Trả về danh sách (row, col) của các ô không rỗng trong ma trận."""
+def _build_rotations(base):
+    """Xây 4 trạng thái xoay."""
+    rots = [base]
+    cur = base
+    for _ in range(3):
+        cur = rotate_cw(cur)
+        rots.append(cur)
+    return rots
+
+
+def get_filled_cells(matrix):
+    """Trả về list (row, col) của các ô != 0."""
     cells = []
     for r, row in enumerate(matrix):
         for c, val in enumerate(row):
-            if val != ' ':
+            if val:
                 cells.append((r, c))
     return cells
 
 
 class Piece:
-    """Đại diện cho một tetromino đang rơi.
-    
+    """Tetromino đang rơi.
+
     Attributes:
-        kind (str): loại piece ('I', 'O', ..., 'M')
-        matrix (list): ma trận 4×4 hiện tại (sau khi xoay)
-        col (int): cột bên trái của bounding box (0-indexed)
-        row (int): hàng trên cùng của bounding box (0-indexed, có thể âm khi spawn)
-        rotation (int): 0-3, góc xoay hiện tại
+        kind: str — 'I','O','T','S','Z','J','L','M'
+        row, col: vị trí bounding box trên board (row có thể âm khi spawn)
+        rotation: 0-3
+        is_mortar: True nếu kind == 'M'
     """
 
-    def __init__(self, kind, start_col=3):
+    def __init__(self, kind, start_col=3, start_row=0):
         self.kind = kind
         self.rotation = 0
         self._rotations = _build_rotations(PIECES[kind])
         self.matrix = self._rotations[0]
         self.col = start_col
-        self.row = 0  # spawn từ đỉnh
+        self.row = start_row
+        self.is_mortar = (kind == 'M')
 
     def get_cells(self):
-        """Trả về (board_row, board_col) của mỗi ô khối."""
-        return [
-            (self.row + r, self.col + c)
-            for r, c in get_cells(self.matrix)
-        ]
+        """Trả về list (board_row, board_col) của mỗi ô filled."""
+        return [(self.row + r, self.col + c)
+                for r, c in get_filled_cells(self.matrix)]
 
     def rotated_matrix(self):
-        """Ma trận sau khi xoay CW 1 lần (chưa áp dụng vào piece)."""
-        next_rot = (self.rotation + 1) % 4
-        return self._rotations[next_rot], next_rot
+        """Trả về (new_matrix, new_rotation_index) cho CW."""
+        nr = (self.rotation + 1) % 4
+        return self._rotations[nr], nr
 
-    def apply_rotation(self):
-        """Áp dụng xoay CW (gọi sau khi đã kiểm tra hợp lệ)."""
-        self.rotation = (self.rotation + 1) % 4
-        self.matrix = self._rotations[self.rotation]
+    def apply_rotation(self, new_matrix, new_rot):
+        """Áp dụng xoay (gọi sau khi đã kiểm tra hợp lệ)."""
+        self.rotation = new_rot
+        self.matrix = new_matrix
 
-    @property
-    def is_mortar(self):
-        return self.kind == 'M'
-
-
-def _build_rotations(base_matrix):
-    """Xây dựng 4 trạng thái xoay từ ma trận gốc."""
-    rotations = [base_matrix]
-    current = base_matrix
-    for _ in range(3):
-        current = rotate_cw(current)
-        rotations.append(current)
-    return rotations
+    def clone(self):
+        """Bản sao nông cho preview/next piece."""
+        p = Piece(self.kind, self.col, self.row)
+        p.rotation = self.rotation
+        p.matrix = self._rotations[self.rotation]
+        return p

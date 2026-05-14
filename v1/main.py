@@ -1,5 +1,4 @@
 # main.py — Game loop chính: Tetris Building V1
-
 import sys
 import random
 import pygame
@@ -10,319 +9,253 @@ from constants import (
     BLACK, WHITE, GRAY, DARK_GRAY, BORDER_COL,
     PIECE_COLORS, MORTAR_SOLID_COLOR, MORTAR_LIQUID_COLOR,
     MORTAR_COAT_COLOR, CRACK_COLOR,
-    FALL_SPEEDS, DEFAULT_FALL_SPEED, SOFT_DROP_MULTIPLIER,
-    MORTAR_RATIO, MORTAR_MELT_TIME,
+    FALL_SPEEDS, DEFAULT_FALL_SPEED, LOCK_DELAY,
+    MORTAR_MELT_TIME,
     CELL_EMPTY, CELL_BRICK, CELL_MORTAR, CELL_LINKED, CELL_HARD,
-    BRICK_TYPES,
+    MORTAR_RATIO, LINES_PER_LEVEL,
 )
-from pieces import Piece, BRICK_TYPES as BT, MORTAR_TYPES
+from pieces import Piece, BRICK_TYPES
 from board import Board
 from mortar import MortarManager
 
-# ── Warna tambahan ────────────────────────────────────────────────
+# ── Màu phụ trợ ──────────────────────────────────────────────────
 BOARD_BG      = (15, 15, 25)
 PANEL_BG      = (20, 20, 35)
 GRID_LINE_COL = (30, 30, 50)
 GHOST_COLOR   = (60, 60, 80)
-TEXT_COLOR    = (220, 220, 220)
-ACCENT_COLOR  = (247, 211, 8)
-DANGER_COLOR  = (239, 32, 41)
+TEXT_COL      = (220, 220, 220)
+ACCENT_COL    = (247, 211, 8)
+DANGER_COL    = (239, 32, 41)
 
-BOARD_ORIGIN_X = 0   # pixel x bắt đầu của board
-BOARD_ORIGIN_Y = 0
-
-
-# ── Helper: chọn piece ngẫu nhiên ─────────────────────────────────
 
 def random_piece():
-    """Trả về Piece ngẫu nhiên — 25% là Mortar (M), 75% là gạch."""
     if random.random() < MORTAR_RATIO:
         kind = 'M'
     else:
-        kind = random.choice(BT)
+        kind = random.choice(BRICK_TYPES)
     return Piece(kind, start_col=BOARD_COLS // 2 - 2)
 
 
-# ── Màu của ô board ───────────────────────────────────────────────
+def _blend(c1, c2, t):
+    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
 
-def cell_color(cell, mortar_positions=None, row=None, col=None):
-    """Trả về màu RGB cho ô cell."""
+
+def cell_color(cell, mortar_positions, r, c):
     if cell.is_empty():
-        return None   # không vẽ
-
+        return None
     t = cell.cell_type
-
     if t == CELL_BRICK:
         base = PIECE_COLORS.get(cell.kind, GRAY)
-        if cell.cracked:
-            # Trộn màu nứt lên
-            return _blend(base, CRACK_COLOR, 0.4)
-        return base
-
+        return _blend(base, CRACK_COLOR, 0.4) if cell.cracked else base
     if t == CELL_MORTAR:
-        # Kiểm tra timer còn bao nhiêu → gradient màu
-        if mortar_positions and (row, col) in mortar_positions:
-            return MORTAR_SOLID_COLOR   # đang đếm ngược
-        return MORTAR_LIQUID_COLOR      # đã hóa lỏng (hiếm, xảy ra ngay trước coat)
-
+        return MORTAR_SOLID_COLOR if (r, c) in mortar_positions else MORTAR_LIQUID_COLOR
     if t == CELL_LINKED:
         base = PIECE_COLORS.get(cell.kind, GRAY)
         if cell.cracked:
             return _blend(base, CRACK_COLOR, 0.5)
         return _blend(base, MORTAR_COAT_COLOR, 0.35)
-
     if t == CELL_HARD:
-        if cell.cracked:
-            return _blend(MORTAR_SOLID_COLOR, CRACK_COLOR, 0.5)
-        return MORTAR_SOLID_COLOR
-
+        return _blend(MORTAR_SOLID_COLOR, CRACK_COLOR, 0.5) if cell.cracked else MORTAR_SOLID_COLOR
     return GRAY
 
 
-def _blend(c1, c2, t):
-    """Trộn c1 và c2 theo tỉ lệ t (0=c1, 1=c2)."""
-    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
+# ── Rendering ─────────────────────────────────────────────────────
 
-
-# ── Renderer ──────────────────────────────────────────────────────
-
-def draw_board(surface, board, mortar_mgr):
-    """Vẽ board game."""
-    board_surf = pygame.Surface((BOARD_COLS * CELL_SIZE, BOARD_ROWS * CELL_SIZE))
-    board_surf.fill(BOARD_BG)
-
-    # Grid lines
+def draw_board(surf, board, mortar_mgr):
+    bs = pygame.Surface((BOARD_COLS * CELL_SIZE, BOARD_ROWS * CELL_SIZE))
+    bs.fill(BOARD_BG)
     for r in range(BOARD_ROWS + 1):
-        pygame.draw.line(board_surf, GRID_LINE_COL,
-                         (0, r * CELL_SIZE),
-                         (BOARD_COLS * CELL_SIZE, r * CELL_SIZE))
+        pygame.draw.line(bs, GRID_LINE_COL, (0, r * CELL_SIZE), (BOARD_COLS * CELL_SIZE, r * CELL_SIZE))
     for c in range(BOARD_COLS + 1):
-        pygame.draw.line(board_surf, GRID_LINE_COL,
-                         (c * CELL_SIZE, 0),
-                         (c * CELL_SIZE, BOARD_ROWS * CELL_SIZE))
+        pygame.draw.line(bs, GRID_LINE_COL, (c * CELL_SIZE, 0), (c * CELL_SIZE, BOARD_ROWS * CELL_SIZE))
 
-    mpos = mortar_mgr.get_liquid_positions()
-
+    mpos = mortar_mgr.get_active_positions()
     for r in range(BOARD_ROWS):
         for c in range(BOARD_COLS):
             cell = board.cell(r, c)
             color = cell_color(cell, mpos, r, c)
             if color:
-                rect = pygame.Rect(c * CELL_SIZE + 1, r * CELL_SIZE + 1,
-                                   CELL_SIZE - 2, CELL_SIZE - 2)
-                pygame.draw.rect(board_surf, color, rect, border_radius=3)
-
-                # Vết nứt — vạch chéo
+                rect = pygame.Rect(c * CELL_SIZE + 1, r * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+                pygame.draw.rect(bs, color, rect, border_radius=3)
                 if cell.cracked:
-                    x0 = c * CELL_SIZE + 4
-                    y0 = r * CELL_SIZE + 4
-                    x1 = (c + 1) * CELL_SIZE - 4
-                    y1 = (r + 1) * CELL_SIZE - 4
-                    pygame.draw.line(board_surf, CRACK_COLOR, (x0, y0), (x1, y1), 2)
-                    pygame.draw.line(board_surf, CRACK_COLOR, (x1, y0), (x0, y1), 2)
-
-                # Timer bar cho vữa
+                    x0, y0 = c * CELL_SIZE + 5, r * CELL_SIZE + 5
+                    x1, y1 = (c + 1) * CELL_SIZE - 5, (r + 1) * CELL_SIZE - 5
+                    pygame.draw.line(bs, CRACK_COLOR, (x0, y0), (x1, y1), 2)
+                    pygame.draw.line(bs, CRACK_COLOR, (x1, y0), (x0, y1), 2)
                 if cell.cell_type == CELL_MORTAR:
                     t = mortar_mgr.get_timer(r, c)
                     if t is not None:
                         ratio = max(0.0, t / MORTAR_MELT_TIME)
-                        bar_w = int((CELL_SIZE - 4) * ratio)
-                        bar_rect = pygame.Rect(c * CELL_SIZE + 2,
-                                               (r + 1) * CELL_SIZE - 5,
-                                               bar_w, 3)
-                        pygame.draw.rect(board_surf, MORTAR_LIQUID_COLOR, bar_rect)
-
-    surface.blit(board_surf, (BOARD_ORIGIN_X, BOARD_ORIGIN_Y))
+                        bw = int((CELL_SIZE - 4) * ratio)
+                        pygame.draw.rect(bs, MORTAR_LIQUID_COLOR,
+                                         (c * CELL_SIZE + 2, (r + 1) * CELL_SIZE - 5, bw, 3))
+    surf.blit(bs, (0, 0))
 
 
-def draw_piece(surface, piece, board, color_override=None, alpha=255):
-    """Vẽ piece đang rơi."""
-    kind = piece.kind
-    base_color = color_override or (
-        MORTAR_SOLID_COLOR if piece.is_mortar else PIECE_COLORS.get(kind, GRAY)
-    )
-
+def draw_piece(surf, piece):
+    color = MORTAR_SOLID_COLOR if piece.is_mortar else PIECE_COLORS.get(piece.kind, GRAY)
     for r, c in piece.get_cells():
         if r < 0:
             continue
-        px = BOARD_ORIGIN_X + c * CELL_SIZE + 1
-        py = BOARD_ORIGIN_Y + r * CELL_SIZE + 1
-        rect = pygame.Rect(px, py, CELL_SIZE - 2, CELL_SIZE - 2)
-        pygame.draw.rect(surface, base_color, rect, border_radius=3)
+        rect = pygame.Rect(c * CELL_SIZE + 1, r * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+        pygame.draw.rect(surf, color, rect, border_radius=3)
 
 
-def draw_ghost(surface, piece, board):
-    """Vẽ ghost piece (bóng mờ ở vị trí thấp nhất)."""
-    ghost_row = board.ghost_row(piece)
-    dr = ghost_row - piece.row
-
+def draw_ghost(surf, piece, board):
+    gr = board.ghost_row(piece)
+    dr = gr - piece.row
     for r, c in piece.get_cells():
-        gr = r + dr
-        if gr < 0 or gr >= BOARD_ROWS:
+        nr = r + dr
+        if nr < 0 or nr >= BOARD_ROWS:
             continue
-        px = BOARD_ORIGIN_X + c * CELL_SIZE + 1
-        py = BOARD_ORIGIN_Y + gr * CELL_SIZE + 1
-        rect = pygame.Rect(px, py, CELL_SIZE - 2, CELL_SIZE - 2)
-        pygame.draw.rect(surface, GHOST_COLOR, rect, border_radius=3)
-        pygame.draw.rect(surface, GRAY, rect, 1, border_radius=3)
+        rect = pygame.Rect(c * CELL_SIZE + 1, nr * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+        pygame.draw.rect(surf, GHOST_COLOR, rect, border_radius=3)
+        pygame.draw.rect(surf, GRAY, rect, 1, border_radius=3)
 
 
-def draw_panel(surface, font_large, font_small, score, level, next_piece, lines_cleared):
-    """Vẽ panel bên phải."""
+def draw_panel(surf, fl, fs, score, level, lines, next_p, phase):
     px = BOARD_COLS * CELL_SIZE
-    panel_rect = pygame.Rect(px, 0, PANEL_W, SCREEN_H)
-    pygame.draw.rect(surface, PANEL_BG, panel_rect)
-    pygame.draw.line(surface, BORDER_COL, (px, 0), (px, SCREEN_H), 2)
+    pygame.draw.rect(surf, PANEL_BG, (px, 0, PANEL_W, SCREEN_H))
+    pygame.draw.line(surf, BORDER_COL, (px, 0), (px, SCREEN_H), 2)
+    m = 12
 
-    margin = 12
+    _txt(surf, fs, "SCORE", px + m, 20, GRAY)
+    _txt(surf, fl, str(score), px + m, 40, ACCENT_COL)
+    _txt(surf, fs, "LEVEL", px + m, 90, GRAY)
+    _txt(surf, fl, str(level), px + m, 110, WHITE)
+    _txt(surf, fs, "LINES", px + m, 155, GRAY)
+    _txt(surf, fl, str(lines), px + m, 175, WHITE)
+    _txt(surf, fs, f"Phase: {phase}", px + m, 215, ACCENT_COL)
+    _txt(surf, fs, "NEXT", px + m, 255, GRAY)
+    _mini(surf, next_p, px + m, 278)
 
-    # ─ Score
-    _label(surface, font_small, "SCORE", px + margin, 20, GRAY)
-    _label(surface, font_large, str(score), px + margin, 40, ACCENT_COLOR)
-
-    # ─ Level
-    _label(surface, font_small, "LEVEL", px + margin, 90, GRAY)
-    _label(surface, font_large, str(level), px + margin, 110, WHITE)
-
-    # ─ Lines
-    _label(surface, font_small, "LINES", px + margin, 160, GRAY)
-    _label(surface, font_large, str(lines_cleared), px + margin, 180, WHITE)
-
-    # ─ Next piece
-    _label(surface, font_small, "NEXT", px + margin, 240, GRAY)
-    _draw_mini_piece(surface, next_piece, px + margin, 265)
-
-    # ─ Controls hint
-    hints = [
-        "← → : Move",
-        "W/↑  : Rotate",
-        "S/↓  : Soft Drop",
-        "SPC  : Hard Drop",
-        "ESC  : Pause",
-    ]
+    hints = ["A/← : Left", "D/→ : Right", "W/↑ : Rotate",
+             "S/↓ : Soft Drop", "SPC : Hard Drop", "ESC : Pause"]
     y = SCREEN_H - len(hints) * 18 - 10
     for h in hints:
-        _label(surface, font_small, h, px + margin, y, GRAY)
+        _txt(surf, fs, h, px + m, y, GRAY)
         y += 18
 
 
-def _label(surface, font, text, x, y, color):
-    surf = font.render(text, True, color)
-    surface.blit(surf, (x, y))
+def _txt(surf, font, text, x, y, col):
+    surf.blit(font.render(text, True, col), (x, y))
 
 
-def _draw_mini_piece(surface, piece, ox, oy):
-    """Vẽ piece thu nhỏ trong panel."""
-    mini = 22
-    kind = piece.kind
-    base_color = MORTAR_SOLID_COLOR if piece.is_mortar else PIECE_COLORS.get(kind, GRAY)
+def _mini(surf, piece, ox, oy):
+    sz = 20
+    color = MORTAR_SOLID_COLOR if piece.is_mortar else PIECE_COLORS.get(piece.kind, GRAY)
     for r, c in piece.get_cells():
-        rect = pygame.Rect(ox + c * mini, oy + r * mini, mini - 2, mini - 2)
-        pygame.draw.rect(surface, base_color, rect, border_radius=2)
+        pygame.draw.rect(surf, color, (ox + c * sz, oy + r * sz, sz - 2, sz - 2), border_radius=2)
 
 
-def draw_danger(surface, board):
-    """Nhấp nháy cảnh báo khi gạch gần đỉnh."""
-    danger_threshold = 4  # hàng từ đỉnh
-    for r in range(danger_threshold):
+def draw_danger(surf, board):
+    for r in range(4):
         if any(board.grid[r][c].is_solid() for c in range(BOARD_COLS)):
             alpha = 80 + int(60 * abs(pygame.time.get_ticks() % 1000 / 500 - 1))
-            warn = pygame.Surface((BOARD_COLS * CELL_SIZE, CELL_SIZE * danger_threshold),
-                                  pygame.SRCALPHA)
-            warn.fill((239, 32, 41, alpha))
-            surface.blit(warn, (BOARD_ORIGIN_X, BOARD_ORIGIN_Y))
+            w = pygame.Surface((BOARD_COLS * CELL_SIZE, CELL_SIZE * 4), pygame.SRCALPHA)
+            w.fill((239, 32, 41, alpha))
+            surf.blit(w, (0, 0))
             break
 
 
-# ── Pause screen ──────────────────────────────────────────────────
-
-def draw_pause(surface, font_large):
-    overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 160))
-    surface.blit(overlay, (0, 0))
-    text = font_large.render("PAUSED", True, WHITE)
-    surface.blit(text, text.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2)))
+def draw_pause(surf, fl):
+    ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+    ov.fill((0, 0, 0, 160))
+    surf.blit(ov, (0, 0))
+    t = fl.render("PAUSED", True, WHITE)
+    surf.blit(t, t.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2)))
 
 
-def draw_game_over(surface, font_large, font_small, score):
-    overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 180))
-    surface.blit(overlay, (0, 0))
-    t1 = font_large.render("GAME OVER", True, DANGER_COLOR)
-    t2 = font_small.render(f"Score: {score}", True, WHITE)
-    t3 = font_small.render("Press R to restart", True, GRAY)
+def draw_game_over(surf, fl, fs, score):
+    ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+    ov.fill((0, 0, 0, 180))
+    surf.blit(ov, (0, 0))
     cx, cy = SCREEN_W // 2, SCREEN_H // 2
-    surface.blit(t1, t1.get_rect(center=(cx, cy - 40)))
-    surface.blit(t2, t2.get_rect(center=(cx, cy + 10)))
-    surface.blit(t3, t3.get_rect(center=(cx, cy + 40)))
+    for txt, font, col, dy in [
+        ("GAME OVER", fl, DANGER_COL, -40),
+        (f"Score: {score}", fs, WHITE, 10),
+        ("Press R to restart", fs, GRAY, 40),
+    ]:
+        t = font.render(txt, True, col)
+        surf.blit(t, t.get_rect(center=(cx, cy + dy)))
 
 
-# ── Game state ────────────────────────────────────────────────────
+# ── Game State ────────────────────────────────────────────────────
 
 class GameState:
     def __init__(self):
-        self.board        = Board()
-        self.mortar_mgr   = MortarManager()
-        self.current      = random_piece()
-        self.next         = random_piece()
-        self.score        = 0
-        self.level        = 1
-        self.lines_total  = 0
-        self.fall_timer   = 0.0   # giây đã trôi qua từ lần rơi cuối
-        self.paused       = False
-        self.game_over    = False
-        self.lock_delay   = 0.0   # thời gian chờ lock sau khi chạm đất
-        self.lock_delay_max = 0.5
+        self.board       = Board()
+        self.mortar_mgr  = MortarManager()
+        self.current     = random_piece()
+        self.next        = random_piece()
+        self.score       = 0
+        self.level       = 1
+        self.lines_total = 0
+        self.lines_level = 0      # dòng cleared trong level hiện tại
+        self.fall_timer  = 0.0
+        self.lock_timer  = 0.0
+        self.paused      = False
+        self.game_over   = False
 
     def fall_speed(self):
         return FALL_SPEEDS.get(self.level, DEFAULT_FALL_SPEED)
 
+    @property
+    def phase(self):
+        if self.level <= 5:
+            return "Móng"
+        elif self.level <= 15:
+            return "Tường"
+        else:
+            return "Mái"
+
     def _spawn_next(self):
         self.current = self.next
-        self.next    = random_piece()
+        self.next = random_piece()
         self.fall_timer = 0.0
-        self.lock_delay = 0.0
+        self.lock_timer = 0.0
         if not self.board.can_place(self.current):
             self.game_over = True
 
     def _lock_current(self):
-        """Đặt piece xuống board, xử lý vữa, xóa dòng."""
         self.board.lock_piece(self.current)
-        # Đăng ký ô vữa
         if self.current.is_mortar:
             self.mortar_mgr.register_piece(self.current)
-        # Xóa dòng
-        gained = self.board.clear_lines()
+
+        gained, lines = self.board.clear_lines_with_combo()
         self.score += gained
-        # Tính lines cleared (ước lượng từ điểm — đơn giản hóa cho V1)
-        self._update_level()
+        self.lines_total += lines
+        self.lines_level += lines
+        self._check_level_up()
         self._spawn_next()
 
-    def _update_level(self):
-        # Level up mỗi 10 dòng (tính xấp xỉ qua score)
-        self.level = max(1, self.score // 10 + 1)
+    def _check_level_up(self):
+        needed = LINES_PER_LEVEL.get(self.level, 25)
+        while self.lines_level >= needed and self.level < 20:
+            self.lines_level -= needed
+            self.level += 1
+            needed = LINES_PER_LEVEL.get(self.level, 25)
 
     # ── Input ─────────────────────────────────────────────────────
 
     def move(self, dc):
         if self.board.can_place(self.current, 0, dc):
             self.current.col += dc
-            self.lock_delay = 0.0   # reset lock delay khi di chuyển
+            self.lock_timer = 0.0
 
     def rotate(self):
-        ok, dc, dr = self.board.can_rotate(self.current)
+        ok, nm, nr, dc, dr = self.board.try_rotate(self.current)
         if ok:
-            self.current.apply_rotation()
+            self.current.apply_rotation(nm, nr)
             self.current.col += dc
             self.current.row += dr
-            self.lock_delay = 0.0
+            self.lock_timer = 0.0
 
     def soft_drop(self):
         if self.board.can_place(self.current, 1, 0):
             self.current.row += 1
             self.fall_timer = 0.0
-            self.score += 1   # soft drop bonus
-        # Nếu không thể → lock ngay
+            self.score += 1
         else:
             self._lock_current()
 
@@ -330,7 +263,7 @@ class GameState:
         dr = 0
         while self.board.can_place(self.current, dr + 1, 0):
             dr += 1
-        self.score += dr * 2   # hard drop bonus
+        self.score += dr * 2
         self.current.row += dr
         self._lock_current()
 
@@ -340,10 +273,8 @@ class GameState:
         if self.paused or self.game_over:
             return
 
-        # Cập nhật vữa
         self.mortar_mgr.update(dt, self.board)
 
-        # Fall timer
         self.fall_timer += dt
         speed = self.fall_speed()
 
@@ -351,81 +282,67 @@ class GameState:
             self.fall_timer -= speed
             if self.board.can_place(self.current, 1, 0):
                 self.current.row += 1
-                self.lock_delay = 0.0
+                self.lock_timer = 0.0
             else:
-                # Chạm đất → bắt đầu lock delay
-                self.lock_delay += dt
-                if self.lock_delay >= self.lock_delay_max:
-                    self._lock_current()
+                self.lock_timer += speed
+
+        # Lock delay
+        if not self.board.can_place(self.current, 1, 0):
+            self.lock_timer += dt
+            if self.lock_timer >= LOCK_DELAY:
+                self._lock_current()
 
 
-# ── Main ──────────────────────────────────────────────────────────
+# ── Main loop ─────────────────────────────────────────────────────
 
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
     pygame.display.set_caption("Tetris Building — V1")
-    clock  = pygame.time.Clock()
+    clock = pygame.time.Clock()
 
     try:
-        font_large = pygame.font.SysFont("consolas", 26, bold=True)
-        font_small = pygame.font.SysFont("consolas", 14)
+        fl = pygame.font.SysFont("consolas", 24, bold=True)
+        fs = pygame.font.SysFont("consolas", 13)
     except Exception:
-        font_large = pygame.font.Font(None, 30)
-        font_small = pygame.font.Font(None, 18)
+        fl = pygame.font.Font(None, 28)
+        fs = pygame.font.Font(None, 16)
 
     state = GameState()
 
-    # DAS (Delayed Auto Shift) — giữ phím trái/phải
-    das_key      = None
-    das_timer    = 0.0
-    das_delay    = 0.17   # giây trước khi ARR bắt đầu
-    das_arr      = 0.05   # giây mỗi lần lặp
+    das_key = None
+    das_timer = 0.0
+    DAS_DELAY = 0.17
+    DAS_ARR   = 0.05
 
     running = True
     while running:
-        dt = clock.tick(FPS) / 1000.0   # giây
+        dt = clock.tick(FPS) / 1000.0
 
-        # ── Events ────────────────────────────────────────────────
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
             elif event.type == pygame.KEYDOWN:
                 k = event.key
-
                 if state.game_over:
                     if k == pygame.K_r:
                         state = GameState()
                     continue
-
                 if k == pygame.K_ESCAPE:
                     state.paused = not state.paused
-
                 if state.paused:
                     continue
-
-                # Xoay
                 if k in (pygame.K_w, pygame.K_UP):
                     state.rotate()
-
-                # Hard drop
                 if k == pygame.K_SPACE:
                     state.hard_drop()
-
-                # Soft drop
                 if k in (pygame.K_s, pygame.K_DOWN):
                     state.soft_drop()
-
-                # Di chuyển (khởi động DAS)
                 if k in (pygame.K_a, pygame.K_LEFT):
-                    state.move(-1)
-                    das_key   = -1
-                    das_timer = 0.0
+                    state.move(-1); das_key = -1; das_timer = 0.0
                 if k in (pygame.K_d, pygame.K_RIGHT):
-                    state.move(1)
-                    das_key   = 1
-                    das_timer = 0.0
+                    state.move(1); das_key = 1; das_timer = 0.0
 
             elif event.type == pygame.KEYUP:
                 k = event.key
@@ -434,38 +351,28 @@ def main():
                 if k in (pygame.K_d, pygame.K_RIGHT) and das_key == 1:
                     das_key = None
 
-        # ── DAS logic ─────────────────────────────────────────────
         if das_key and not state.paused and not state.game_over:
             das_timer += dt
-            if das_timer >= das_delay:
-                arr_timer = das_timer - das_delay
-                steps = int(arr_timer / das_arr)
-                for _ in range(steps):
+            if das_timer >= DAS_DELAY:
+                arr_t = das_timer - DAS_DELAY
+                for _ in range(int(arr_t / DAS_ARR)):
                     state.move(das_key)
-                das_timer = das_delay + (arr_timer % das_arr)
+                das_timer = DAS_DELAY + (arr_t % DAS_ARR)
 
-        # ── Update logic ──────────────────────────────────────────
         state.update(dt)
 
-        # ── Render ────────────────────────────────────────────────
         screen.fill(BLACK)
-
         draw_board(screen, state.board, state.mortar_mgr)
-
         if not state.game_over:
             draw_ghost(screen, state.current, state.board)
-            draw_piece(screen, state.current, state.board)
-
+            draw_piece(screen, state.current)
         draw_danger(screen, state.board)
-
-        draw_panel(screen, font_large, font_small,
-                   state.score, state.level, state.next, state.lines_total)
-
+        draw_panel(screen, fl, fs, state.score, state.level,
+                   state.lines_total, state.next, state.phase)
         if state.paused:
-            draw_pause(screen, font_large)
-
+            draw_pause(screen, fl)
         if state.game_over:
-            draw_game_over(screen, font_large, font_small, state.score)
+            draw_game_over(screen, fl, fs, state.score)
 
         pygame.display.flip()
 
