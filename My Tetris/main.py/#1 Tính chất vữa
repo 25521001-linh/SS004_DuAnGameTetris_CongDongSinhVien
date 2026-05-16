@@ -4,6 +4,9 @@ import sys
 
 pygame.init()
 
+# =====================================================================
+#  1. CONSTANTS (HẰNG SỐ CẤU HÌNH HỆ THỐNG)
+# =====================================================================
 H = 15
 W = 10
 CELL_SIZE = 35          
@@ -13,8 +16,6 @@ MAP_H = H * CELL_SIZE
 
 SCREEN_WIDTH  = 900
 SCREEN_HEIGHT = 600
-
-
 MAP_ORIGIN_X = (SCREEN_WIDTH  - MAP_W) // 2   
 MAP_ORIGIN_Y = (SCREEN_HEIGHT - MAP_H) // 2   
 
@@ -33,107 +34,124 @@ MAP_EMPTY = (15,  15,  25)
 GRID_COLOR     = (99, 175, 243)   
 GRID_THICKNESS = 1              
 
-
-MAP_FILL_COLOR = (92,162,224)  
+MAP_FILL_COLOR = (92, 162, 224)  
 MAP_FILL_ALPHA = 200               
 WALL_COLOR     = (160, 200, 255)  
 WALL_THICKNESS = 3                
-
 
 WIDGET_BG_COLOR = (15, 15, 40)
 WIDGET_ALPHA    = 200
 WIDGET_BORDER   = (80, 80, 140)
 
-# =====================================================================
-#  3.  ĐIỀU CHỈNH VỊ TRÍ CÁC WIDGET (BẢNG ĐIỂM / NEXT BLOCK)
-#  
-# =====================================================================
+COLOR_LOSE_BG    = (30, 20, 40)
+COLOR_SETTING_BG = (25, 25, 50)
+COLOR_GREEN      = (46, 204, 113)
 
-# --- BẢNG LEVEL 
+# =====================================================================
+#  3. ĐIỀU CHỈNH VỊ TRÍ CÁC WIDGET 
+# =====================================================================
 LEVEL_FRAME_X  = 30
 LEVEL_FRAME_Y  = 30
-LEVEL_TEXT_OX  = 15      # Chữ cách lề trái của khung bao nhiêu px
-LEVEL_TEXT_OY  = 8       # Chữ cách lề trên của khung bao nhiêu px
-LEVEL_FBK_W    = 160     # Chiều rộng hộp màu dự phòng
-LEVEL_FBK_H    = 40      # Chiều cao hộp màu dự phòng
-
-# --- BẢNG SCORE (Nằm bên trái Map chơi) ---
+LEVEL_TEXT_OX  = 15      
+LEVEL_TEXT_OY  = 8       
+LEVEL_FBK_W    = 160     
+LEVEL_FBK_H    = 40      
 
 SCORE_FRAME_X  = None     
 SCORE_FRAME_Y  = None     
 SCORE_TEXT_OX  = 15      
 SCORE_TEXT_OY  = 15      
-SCORE_BIG_OY   = 55      # Vị trí đặt số điểm to tính từ đỉnh khung xuống
+SCORE_BIG_OY   = 55      
 SCORE_FBK_W    = 150     
 SCORE_FBK_H    = 120     
 
-# --- BẢNG NEXT BLOCK (Nằm bên phải Map chơi) ---
 NEXT_FRAME_X   = None    
 NEXT_FRAME_Y   = None    
 NEXT_FBK_W     = 150     
 NEXT_FBK_H     = 150     
 
-# --- NÚT PAUSE & SETTINGS (Góc trên bên phải màn hình) ---
-BTN_FRAME_X    = SCREEN_WIDTH - 130  
-BTN_FRAME_Y    = 30
-BTN_FBK_W      = 100
-BTN_FBK_H      = 44
 
+PAUSE_BTN_X, PAUSE_BTN_Y = SCREEN_WIDTH - 140, 30
+SETTING_BTN_X, SETTING_BTN_Y = SCREEN_WIDTH - 70, 30
+BTN_SIZE = 44  
 
+# =====================================================================
+#  4. DISPLAY SETUP & ASSETS LOADING
+# =====================================================================
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Tetris - Gach & Vua v2.1 (Giao diện Tối ưu)")
 clock  = pygame.time.Clock()
 
-
 font_large  = pygame.font.SysFont('Arial', 28, bold=True)
 font_medium = pygame.font.SysFont('Arial', 22)
 font_small  = pygame.font.SysFont('Arial', 16)
-
 
 BG_PATH          = "My Tetris/assets/city.png"   
 SCORE_FRAME_PATH = None   
 NEXT_FRAME_PATH  = None   
 LEVEL_FRAME_PATH = None   
 
+PAUSE_ICON_PATH   = "My Tetris/assets/button/pauseicon.png"  
+SETTING_ICON_PATH = None  
+LOSE_FRAME_PATH   = None  
+SETTING_FRAME_PATH= None  
+
+# Đường dẫn hình ảnh cho các nút bấm chức năng mới (Thay thế text bằng ảnh vẽ sẵn)
+PLAY_BTN_PATH     = None  
+BACK_BTN_PATH     = None  
+SOUND_ON_PATH     = None  
+SOUND_OFF_PATH    = None  
+EXIT_BTN_PATH     = None  
+
 def load_background(path, target_w, target_h):
-    
     try:
         img = pygame.image.load(path).convert()
         scaled = pygame.transform.scale(img, (target_w, target_h))
-        print(f"✅ Background loaded: {path}")
         return scaled
     except Exception as e:
-        print(f"❌ Background failed ({path}): {e}. Sử dụng nền màu đen.")
         return None
 
 def load_widget_image(path):
-    
+    if path is None:
+        return None
+    try:
+        return pygame.image.load(path).convert_alpha()
+    except Exception as e:
+        return None
+
+def load_icon_image(path, size_w, size_h):
     if path is None:
         return None
     try:
         img = pygame.image.load(path).convert_alpha()
-        print(f"✅ Widget Image loaded: {path} size={img.get_size()}")
-        return img
+        return pygame.transform.scale(img, (size_w, size_h))
     except Exception as e:
-        print(f"❌ Widget Image failed ({path}): {e}. Dùng hộp màu fallback.")
         return None
 
 def load_tile(filename):
-    """Giữ nguyên logic load các khối gạch nhỏ trong map của bạn"""
     try:
         img = pygame.image.load(f"My Tetris/assets/{filename}").convert_alpha()
         return pygame.transform.scale(img, (CELL_SIZE, CELL_SIZE))
     except Exception as e:
-        print(f"❌ Failed to load tile {filename}: {e}")
         surf = pygame.Surface((CELL_SIZE, CELL_SIZE))
         surf.fill(GRAY)
         return surf
-
 
 bg_image        = load_background(BG_PATH, SCREEN_WIDTH, SCREEN_HEIGHT)
 score_frame_img = load_widget_image(SCORE_FRAME_PATH)
 next_frame_img  = load_widget_image(NEXT_FRAME_PATH)
 level_frame_img = load_widget_image(LEVEL_FRAME_PATH)
+
+pause_icon_img   = load_icon_image(PAUSE_ICON_PATH, BTN_SIZE, BTN_SIZE)
+setting_icon_img = load_icon_image(SETTING_ICON_PATH, BTN_SIZE, BTN_SIZE)
+lose_frame_img   = load_widget_image(LOSE_FRAME_PATH)
+setting_frame_img= load_widget_image(SETTING_FRAME_PATH)
+
+play_btn_img      = load_widget_image(PLAY_BTN_PATH)
+back_btn_img      = load_widget_image(BACK_BTN_PATH)
+sound_on_btn_img  = load_widget_image(SOUND_ON_PATH)
+sound_off_btn_img = load_widget_image(SOUND_OFF_PATH)
+exit_btn_img      = load_widget_image(EXIT_BTN_PATH)
 
 textures = {
     'B': load_tile("Gach01.png"),
@@ -144,7 +162,6 @@ textures = {
     'S': load_tile("Gachcung.png"),
     'X': load_tile("Vuafill.png"),
 }
-
 
 board                = [[' '] * W for _ in range(H)]
 mortar_placed_time   = [[0]   * W for _ in range(H)]
@@ -184,20 +201,16 @@ class Block:
         self.shape = [list(row) for row in rotated]
 
 def init_board():
-    
     for i in range(H):
         for j in range(W):
             board[i][j] = ' '
 
-
 def can_move(block, dx, dy):
-    
     for i, row in enumerate(block.shape):
         for j, cell in enumerate(row):
             if cell != ' ':
                 tx = block.x + j + dx
                 ty = block.y + i + dy
-                
                 if tx < 0 or tx >= W or ty >= H or ty < 0:
                     return False
                 if board[ty][tx] != ' ':
@@ -234,10 +247,10 @@ def fill_random_hole(i, j):
 def handle_mortar_flow():
     current_time = pygame.time.get_ticks()
     for i in range(H-2, 0, -1):
-        for j in range(1, W-1):
+        for j in range(0, W):  
             if board[i][j] == 'M' and current_time - mortar_placed_time[i][j] > 3500:
                 below_i, below_j = i+1, j
-                if board[below_i][below_j] == ' ':
+                if below_i < H and board[below_i][below_j] == ' ':
                     brick_above = find_falling_brick_above(i, j)
                     if brick_above is not None:
                         brick_type = board[brick_above][j]
@@ -248,18 +261,18 @@ def handle_mortar_flow():
                     board[i][j] = ' '
                     mortar_placed_time[i][j] = 0
                     fill_random_hole(i, j)
-                elif board[below_i][below_j] in ['B','G','R']:
+                elif below_i < H and board[below_i][below_j] in ['B','G','R']:
                     board[below_i][below_j] = 'X'
                     block_durability[below_i][below_j] = 2
                     board[i][j] = ' '
-                elif board[below_i][below_j] == 'M':
+                elif below_i < H and board[below_i][below_j] == 'M':
                     board[below_i][below_j] = 'V'
                     block_durability[below_i][below_j] = 1
                     board[i][j] = ' '
 
 def check_glue_reaction():
     for i in range(H):
-        for j in range(1, W-1):
+        for j in range(0, W):  
             if board[i][j] in ['B','G','R']:
                 for di in [-1,0,1]:
                     for dj in [-1,0,1]:
@@ -271,11 +284,11 @@ def check_glue_reaction():
 
 def remove_lines():
     lines_removed = 0
-    i = H-2
-    while i > 0:
-        full_line = all(board[i][j] != ' ' and board[i][j] != '#' for j in range(1, W-1))
+    i = H-1
+    while i >= 0:
+        full_line = all(board[i][j] != ' ' for j in range(0, W)) 
         if full_line:
-            for j in range(1, W-1):
+            for j in range(0, W):
                 if block_durability[i][j] > 1:
                     block_durability[i][j] -= 1
                     if block_durability[i][j] == 1:
@@ -283,21 +296,21 @@ def remove_lines():
                             board[i][j] = 'B'
                 else:
                     board[i][j] = ' '
-            for ii in range(i, 1, -1):
-                for j in range(1, W-1):
-                    board[ii][j]              = board[ii-1][j]
+            for ii in range(i, 0, -1):
+                for j in range(0, W):
+                    board[ii][j] = board[ii-1][j]
                     block_durability[ii][j]   = block_durability[ii-1][j]
                     mortar_placed_time[ii][j] = mortar_placed_time[ii-1][j]
+            for j in range(0, W):
+                board[0][j] = ' '
+                block_durability[0][j] = 1
+                mortar_placed_time[0][j] = 0
             lines_removed += 1
         else:
             i -= 1
     return lines_removed
 
-# =====================================================================
-#  6. DRAW HELPERS (HÀM PHỤ TRỢ OFFSET TỌA ĐỘ)
-# =====================================================================
 def _cell_rect(col, row):
-    
     return pygame.Rect(
         MAP_ORIGIN_X + col * CELL_SIZE,
         MAP_ORIGIN_Y + row * CELL_SIZE,
@@ -306,35 +319,27 @@ def _cell_rect(col, row):
     )
 
 def draw_widget_base(frame_img, x, y, fbk_w, fbk_h):
-    
     if frame_img is not None:
         screen.blit(frame_img, (x, y))
         return frame_img.get_width(), frame_img.get_height()
     else:
-        # Hộp màu bán trong suốt làm dự phòng (Fallback)
         box = pygame.Surface((fbk_w, fbk_h), pygame.SRCALPHA)
         pygame.draw.rect(box, (*WIDGET_BG_COLOR, WIDGET_ALPHA), (0, 0, fbk_w, fbk_h), border_radius=10)
         pygame.draw.rect(box, (*WIDGET_BORDER, 220), (0, 0, fbk_w, fbk_h), 2, border_radius=10)
         screen.blit(box, (x, y))
         return fbk_w, fbk_h
 
-# =====================================================================
-#  7. NEW DRAW FUNCTIONS (CÁC HÀM VẼ GIAO DIỆN ĐỘC LẬP TÁCH BIỆT)
-# =====================================================================
 
 def draw_background_screen():
-    
     if bg_image:
         screen.blit(bg_image, (0, 0))
     else:
         screen.fill(MAP_EMPTY)
 
-    
     map_fill = pygame.Surface((MAP_W, MAP_H), pygame.SRCALPHA)
     map_fill.fill((*MAP_FILL_COLOR, MAP_FILL_ALPHA))
     screen.blit(map_fill, (MAP_ORIGIN_X, MAP_ORIGIN_Y))
 
-    
     for col in range(W + 1):
         x = MAP_ORIGIN_X + col * CELL_SIZE
         pygame.draw.line(screen, GRID_COLOR, (x, MAP_ORIGIN_Y), (x, MAP_ORIGIN_Y + MAP_H), GRID_THICKNESS)
@@ -342,17 +347,14 @@ def draw_background_screen():
         y = MAP_ORIGIN_Y + row * CELL_SIZE
         pygame.draw.line(screen, GRID_COLOR, (MAP_ORIGIN_X, y), (MAP_ORIGIN_X + MAP_W, y), GRID_THICKNESS)
 
-    
     x0, y0 = MAP_ORIGIN_X, MAP_ORIGIN_Y
     x1, y1 = MAP_ORIGIN_X + MAP_W, MAP_ORIGIN_Y + MAP_H
-    pygame.draw.line(screen, WALL_COLOR, (x0, y0), (x1, y0), WALL_THICKNESS)  # Line Trên
-    pygame.draw.line(screen, WALL_COLOR, (x0, y1), (x1, y1), WALL_THICKNESS)  # Line Dưới
-    pygame.draw.line(screen, WALL_COLOR, (x0, y0), (x0, y1), WALL_THICKNESS)  # Line Trái
-    pygame.draw.line(screen, WALL_COLOR, (x1, y0), (x1, y1), WALL_THICKNESS)  # Line Phải
-
+    pygame.draw.line(screen, WALL_COLOR, (x0, y0), (x1, y0), WALL_THICKNESS)  
+    pygame.draw.line(screen, WALL_COLOR, (x0, y1), (x1, y1), WALL_THICKNESS)  
+    pygame.draw.line(screen, WALL_COLOR, (x0, y0), (x0, y1), WALL_THICKNESS)  
+    pygame.draw.line(screen, WALL_COLOR, (x1, y0), (x1, y1), WALL_THICKNESS) 
 
 def draw_board():
-    
     for i in range(H):
         for j in range(W):
             cell = board[i][j]
@@ -360,9 +362,7 @@ def draw_board():
             if cell in textures:
                 screen.blit(textures[cell], rect)
 
-
 def draw_block(block):
-    
     for i, row in enumerate(block.shape):
         for j, char in enumerate(row):
             if char != ' ':
@@ -373,51 +373,48 @@ def draw_block(block):
                     screen.blit(textures[cell_type], rect)
                 else:
                     pygame.draw.rect(screen, (200, 50, 50), rect)
-                pygame.draw.rect(screen, WHITE, rect, 1) # Vẽ viền mảnh cho khối đang rơi
-
+                pygame.draw.rect(screen, WHITE, rect, 1) 
 
 def draw_left_panel(score, level):
-    
-    # --- A. VẼ KHUNG LEVEL ---
     draw_widget_base(level_frame_img, LEVEL_FRAME_X, LEVEL_FRAME_Y, LEVEL_FBK_W, LEVEL_FBK_H)
     level_surf = font_medium.render(f"LEVEL: {level}", True, WHITE)
     screen.blit(level_surf, (LEVEL_FRAME_X + LEVEL_TEXT_OX, LEVEL_FRAME_Y + LEVEL_TEXT_OY))
 
-    # --- B. VẼ KHUNG SCORE (Tự tính dịch trái Map nếu config để None) ---
     sx = SCORE_FRAME_X if SCORE_FRAME_X is not None else MAP_ORIGIN_X - UI_GAP - SCORE_FBK_W
     sy = SCORE_FRAME_Y if SCORE_FRAME_Y is not None else MAP_ORIGIN_Y + (MAP_H - SCORE_FBK_H) // 2
 
     actual_w, _ = draw_widget_base(score_frame_img, sx, sy, SCORE_FBK_W, SCORE_FBK_H)
 
-    # Chèn text tiêu đề và điểm số thực tế
     star_surf = font_medium.render("★ SCORE", True, (255, 210, 0))
     screen.blit(star_surf, (sx + SCORE_TEXT_OX, sy + SCORE_TEXT_OY))
 
     score_surf = font_large.render(str(score), True, WHITE)
-    center_x   = sx + (actual_w - score_surf.get_width()) // 2  # Căn chữ vào giữa chiều ngang khung
+    center_x   = sx + (actual_w - score_surf.get_width()) // 2  
     screen.blit(score_surf, (center_x, sy + SCORE_BIG_OY))
 
-
 def draw_right_panel(next_block):
-    
-    # --- A. VẼ KHUNG NÚT PAUSE TĨNH ---
-    draw_widget_base(None, BTN_FRAME_X, BTN_FRAME_Y, BTN_FBK_W, BTN_FBK_H)
-    pause_surf   = font_large.render("II", True, WHITE)
-    setting_surf = font_large.render("⚙", True, (255, 80, 80))
-    screen.blit(pause_surf,   (BTN_FRAME_X + 18, BTN_FRAME_Y + 6))
-    screen.blit(setting_surf, (BTN_FRAME_X + 58, BTN_FRAME_Y + 6))
+    if pause_icon_img is not None:
+        screen.blit(pause_icon_img, (PAUSE_BTN_X, PAUSE_BTN_Y))
+    else:
+        draw_widget_base(None, PAUSE_BTN_X, PAUSE_BTN_Y, BTN_SIZE, BTN_SIZE)
+        p_surf = font_large.render("II", True, WHITE)
+        screen.blit(p_surf, (PAUSE_BTN_X + 13, PAUSE_BTN_Y + 5))
 
-    # --- B. VẼ KHUNG NEXT BLOCK PREVIEW ---
+    if setting_icon_img is not None:
+        screen.blit(setting_icon_img, (SETTING_BTN_X, SETTING_BTN_Y))
+    else:
+        draw_widget_base(None, SETTING_BTN_X, SETTING_BTN_Y, BTN_SIZE, BTN_SIZE)
+        s_surf = font_large.render("⚙", True, WHITE)
+        screen.blit(s_surf, (SETTING_BTN_X + 9, SETTING_BTN_Y + 4))
+
     nx = NEXT_FRAME_X if NEXT_FRAME_X is not None else MAP_ORIGIN_X + MAP_W + UI_GAP
     ny = NEXT_FRAME_Y if NEXT_FRAME_Y is not None else MAP_ORIGIN_Y + (MAP_H - NEXT_FBK_H) // 2
 
     actual_w, actual_h = draw_widget_base(next_frame_img, nx, ny, NEXT_FBK_W, NEXT_FBK_H)
 
-    # Nhãn tiêu đề NEXT nhỏ xinh góc trên khung
     next_lbl = font_small.render("NEXT", True, (180, 180, 220))
     screen.blit(next_lbl, (nx + 12, ny + 12))
 
-    # Thực hiện render mini block tiếp theo vào tâm lòng khung
     if next_block is not None:
         preview_cell = CELL_SIZE - 8
         rows  = len(next_block.shape)
@@ -440,6 +437,135 @@ def draw_right_panel(next_block):
                         pygame.draw.rect(screen, (200, 50, 50), r)
                     pygame.draw.rect(screen, WHITE, r, 1)
 
+# =====================================================================
+#  8. POPUP OVERLAYS FUNCTIONS (CÁC BẢNG HIỆN THỊ TRUNG TÂM)
+# =====================================================================
+def get_button_rect(x, y, w, h):
+    return pygame.Rect(x, y, w, h)
+
+# Tách biệt vẽ chữ dựa trên việc có hình ảnh nút bấm hay không
+def draw_lose_popup(score, high_score):
+    w, h = 320, 260
+    x = (SCREEN_WIDTH - w) // 2
+    y = (SCREEN_HEIGHT - h) // 2
+    
+    if lose_frame_img is not None:
+        screen.blit(lose_frame_img, (x, y))
+    else:
+        popup = pygame.Surface((w, h), pygame.SRCALPHA)
+        popup.fill((*COLOR_LOSE_BG, 240))
+        pygame.draw.rect(popup, WALL_COLOR, (0, 0, w, h), 3, border_radius=12)
+        screen.blit(popup, (x, y))
+        
+    t1 = font_large.render("YOU LOSE", True, (231, 76, 60))
+    t2 = font_medium.render(f"Final score: {score}", True, WHITE)
+    t3 = font_medium.render(f"Highest score: {high_score}", True, (241, 196, 15))
+    
+    screen.blit(t1, (x + (w - t1.get_width())//2, y + 25))
+    screen.blit(t2, (x + (w - t2.get_width())//2, y + 80))
+    screen.blit(t3, (x + (w - t3.get_width())//2, y + 120))
+    
+    
+    play_rect = pygame.Rect(x + 40, y + 180, 100, 40)
+    back_rect = pygame.Rect(x + 180, y + 180, 100, 40)
+    
+    # --- VẼ NÚT PLAY ---
+    if play_btn_img is not None:
+        scaled_play = pygame.transform.scale(play_btn_img, (play_rect.width, play_rect.height))
+        screen.blit(scaled_play, (play_rect.x, play_rect.y))
+    else:
+        pygame.draw.rect(screen, (41, 128, 185), play_rect, border_radius=6)
+        txt_play = font_medium.render("Play", True, WHITE)
+        screen.blit(txt_play, (play_rect.x + (100 - txt_play.get_width())//2, play_rect.y + 7))
+        
+    # --- VẼ NÚT BACK ---
+    if back_btn_img is not None:
+        scaled_back = pygame.transform.scale(back_btn_img, (back_rect.width, back_rect.height))
+        screen.blit(scaled_back, (back_rect.x, back_rect.y))
+    else:
+        
+        pygame.draw.rect(screen, DARK_GRAY, back_rect, border_radius=6)
+        txt_back = font_medium.render("Back", True, WHITE)
+        screen.blit(txt_back, (back_rect.x + (100 - txt_back.get_width())//2, back_rect.y + 7))
+    
+    return play_rect, back_rect
+
+def draw_pause_overlay():
+    w, h = 80, 80
+    x = MAP_ORIGIN_X + (MAP_W - w) // 2
+    y = MAP_ORIGIN_Y + (MAP_H - h) // 2
+    
+    pause_box = pygame.Surface((w, h), pygame.SRCALPHA)
+    pause_box.fill((20, 20, 35, 220))
+    pygame.draw.rect(pause_box, WHITE, (0, 0, w, h), 2, border_radius=40) 
+    screen.blit(pause_box, (x, y))
+    
+    pygame.draw.rect(screen, WHITE, (x + 28, y + 25, 8, 30))
+    pygame.draw.rect(screen, WHITE, (x + 44, y + 25, 8, 30))
+    return pygame.Rect(x, y, w, h)
+
+
+def draw_setting_popup(sound_on):
+    w, h = 320, 260  
+    x = (SCREEN_WIDTH - w) // 2
+    y = (SCREEN_HEIGHT - h) // 2
+    
+    if setting_frame_img is not None:
+        screen.blit(setting_frame_img, (x, y))
+    else:
+        popup = pygame.Surface((w, h), pygame.SRCALPHA)
+        popup.fill((*COLOR_SETTING_BG, 245))
+        pygame.draw.rect(popup, WIDGET_BORDER, (0, 0, w, h), 2, border_radius=10)
+        screen.blit(popup, (x, y))
+        
+    title = font_large.render("SETTINGS", True, WHITE)
+    screen.blit(title, (x + (w - title.get_width())//2, y + 20))
+    
+    lbl_sound = font_medium.render("Sound:", True, WHITE)
+    screen.blit(lbl_sound, (x + 40, y + 80))
+    
+    
+    sound_btn_rect = pygame.Rect(x + 160, y + 75, 110, 35)
+    active_img = sound_on_btn_img if sound_on else sound_off_btn_img
+    
+    if active_img is not None:
+        scaled_sound_btn = pygame.transform.scale(active_img, (sound_btn_rect.width, sound_btn_rect.height))
+        screen.blit(scaled_sound_btn, (sound_btn_rect.x, sound_btn_rect.y))
+    else:
+        btn_color = COLOR_GREEN if sound_on else GRAY
+        btn_text  = "ON" if sound_on else "OFF"
+        pygame.draw.rect(screen, btn_color, sound_btn_rect, border_radius=5)
+        txt_s = font_medium.render(btn_text, True, WHITE)
+        screen.blit(txt_s, (sound_btn_rect.x + (sound_btn_rect.width - txt_s.get_width())//2, sound_btn_rect.y + 5))
+    
+    
+    exit_btn_rect = pygame.Rect(x + 40, y + 140, 240, 40)
+    if exit_btn_img is not None:
+        scaled_exit_btn = pygame.transform.scale(exit_btn_img, (exit_btn_rect.width, exit_btn_rect.height))
+        screen.blit(scaled_exit_btn, (exit_btn_rect.x, exit_btn_rect.y))
+    else:
+        
+        pygame.draw.rect(screen, (192, 57, 43), exit_btn_rect, border_radius=6)
+        txt_e = font_medium.render("Exit Game", True, WHITE)
+        screen.blit(txt_e, (exit_btn_rect.x + (exit_btn_rect.width - txt_e.get_width())//2, exit_btn_rect.y + 7))
+    
+    hint_txt = font_small.render("* Press any key to resume game", True, (180, 180, 200))
+    screen.blit(hint_txt, (x + (w - hint_txt.get_width())//2, y + 205))
+    
+    return sound_btn_rect, exit_btn_rect
+
+# =====================================================================
+#  9. HÀM NÚT BẤM BÀN PHÍM RIÊNG CHO PAUSE (ENTER TO PAUSE)
+# =====================================================================
+def handle_pause_input(event, current_state):
+    if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_RETURN:  
+            if current_state == "PLAYING":
+                return "PAUSED"
+            elif current_state == "PAUSED":
+                return "PLAYING"
+    return current_state
+
 
 def main():
     init_board()
@@ -449,12 +575,14 @@ def main():
     level      = 1
     fall_time  = 0
     fall_speed = 500
+    high_score = 0  
 
-    
+    game_state = "PLAYING" 
+    sound_on   = True      
+
     is_brick      = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
     current_block = Block(is_brick)
 
-    
     is_brick_next = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
     next_block    = Block(is_brick_next)
 
@@ -462,59 +590,100 @@ def main():
     while running:
         current_time = pygame.time.get_ticks()
 
-        
-        handle_mortar_flow()
-        check_glue_reaction()
+        if game_state == "PLAYING":
+            handle_mortar_flow()
+            check_glue_reaction()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            
+            game_state = handle_pause_input(event, game_state)
+                
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                
+                if game_state == "PLAYING":
+                    if get_button_rect(SETTING_BTN_X, SETTING_BTN_Y, BTN_SIZE, BTN_SIZE).collidepoint(mx, my):
+                        game_state = "SETTINGS"
+                        
+                elif game_state == "SETTINGS":
+                    sound_rect, exit_rect = draw_setting_popup(sound_on) 
+                    if sound_rect.collidepoint(mx, my):
+                        sound_on = not sound_on 
+                    elif exit_rect.collidepoint(mx, my):
+                        print("Quay trở lại màn hình chờ (Hành động giữ chỗ)...")
+                        
+                elif game_state == "GAMEOVER":
+                    play_rect, back_rect = draw_lose_popup(score, high_score)
+                    if play_rect.collidepoint(mx, my):
+                        init_board()
+                        score = 0
+                        lines_done = 0
+                        level = 1
+                        fall_speed = 500
+                        is_brick = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
+                        current_block = Block(is_brick)
+                        game_state = "PLAYING"
+                    elif back_rect.collidepoint(mx, my):
+                        print("Quay trở lại màn hình chờ...")
+
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     running = False
-                if event.key in (pygame.K_LEFT, pygame.K_a) and can_move(current_block, -1, 0):
-                    current_block.x -= 1
-                elif event.key in (pygame.K_RIGHT, pygame.K_d) and can_move(current_block, 1, 0):
-                    current_block.x += 1
-                elif event.key in (pygame.K_UP, pygame.K_w):
-                    current_block.rotate()
-                    if not can_move(current_block, 0, 0):
-                        for _ in range(3):
-                            current_block.rotate()
-                elif event.key in (pygame.K_DOWN, pygame.K_s):
-                    fall_speed = 50
-
-        
-        if current_time - fall_time > fall_speed:
-            if can_move(current_block, 0, 1):
-                current_block.y += 1
-            else:
-                place_block(current_block)
-                removed     = remove_lines()
-                lines_done += removed
-                score      += removed * 100 * level
-                level       = lines_done // 10 + 1   
-                fall_speed  = max(100, 500 - (level - 1) * 40)  
-
                 
-                current_block = next_block
-                is_brick_next = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
-                next_block    = Block(is_brick_next)
-                fall_speed    = max(100, 500 - (level - 1) * 40)
+                if game_state == "SETTINGS":
+                    game_state = "PLAYING"
+                
+                elif game_state == "PLAYING":
+                    if event.key in (pygame.K_LEFT, pygame.K_a) and can_move(current_block, -1, 0):
+                        current_block.x -= 1
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d) and can_move(current_block, 1, 0):
+                        current_block.x += 1
+                    elif event.key in (pygame.K_UP, pygame.K_w):
+                        current_block.rotate()
+                        if not can_move(current_block, 0, 0):
+                            for _ in range(3):
+                                current_block.rotate()
+                    elif event.key in (pygame.K_DOWN, pygame.K_s):
+                        fall_speed = 50
 
-                if not can_move(current_block, 0, 0):
-                    running = False
+        if game_state == "PLAYING":
+            if current_time - fall_time > fall_speed:
+                if can_move(current_block, 0, 1):
+                    current_block.y += 1
+                else:
+                    place_block(current_block)
+                    removed     = remove_lines()
+                    lines_done += removed
+                    score      += removed * 100 * level
+                    level       = lines_done // 10 + 1   
+                    fall_speed  = max(100, 500 - (level - 1) * 40) 
 
-            fall_time = current_time
+                    current_block = next_block
+                    is_brick_next = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
+                    next_block    = Block(is_brick_next)
+                    fall_speed    = max(100, 500 - (level - 1) * 40)
 
-        
+                    if not can_move(current_block, 0, 0):
+                        if score > high_score:
+                            high_score = score
+                        game_state = "GAMEOVER"
+
+                fall_time = current_time
+
         draw_background_screen()   
-        draw_board()        
-        
+        draw_board()       
         draw_block(current_block)  
-        
         draw_left_panel(score, level)   
         draw_right_panel(next_block)                
+
+        if game_state == "PAUSED":
+            draw_pause_overlay()
+        elif game_state == "SETTINGS":
+            draw_setting_popup(sound_on)
+        elif game_state == "GAMEOVER":
+            draw_lose_popup(score, high_score)
 
         pygame.display.flip()
         clock.tick(FPS)
