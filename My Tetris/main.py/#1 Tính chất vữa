@@ -1,0 +1,526 @@
+import pygame
+import random
+import sys
+
+pygame.init()
+
+H = 15
+W = 10
+CELL_SIZE = 35          
+
+MAP_W = W * CELL_SIZE   
+MAP_H = H * CELL_SIZE   
+
+SCREEN_WIDTH  = 900
+SCREEN_HEIGHT = 600
+
+
+MAP_ORIGIN_X = (SCREEN_WIDTH  - MAP_W) // 2   
+MAP_ORIGIN_Y = (SCREEN_HEIGHT - MAP_H) // 2   
+
+UI_GAP = 20
+FPS = 60
+
+# =====================================================================
+#  2. COLORS & STYLE 
+# =====================================================================
+BLACK     = (0,   0,   0)
+WHITE     = (255, 255, 255)
+GRAY      = (128, 128, 128)
+DARK_GRAY = (80,  80,  80)
+MAP_EMPTY = (15,  15,  25)      
+
+GRID_COLOR     = (99, 175, 243)   
+GRID_THICKNESS = 1              
+
+
+MAP_FILL_COLOR = (92,162,224)  
+MAP_FILL_ALPHA = 200               
+WALL_COLOR     = (160, 200, 255)  
+WALL_THICKNESS = 3                
+
+
+WIDGET_BG_COLOR = (15, 15, 40)
+WIDGET_ALPHA    = 200
+WIDGET_BORDER   = (80, 80, 140)
+
+# =====================================================================
+#  3.  ĐIỀU CHỈNH VỊ TRÍ CÁC WIDGET (BẢNG ĐIỂM / NEXT BLOCK)
+#  
+# =====================================================================
+
+# --- BẢNG LEVEL 
+LEVEL_FRAME_X  = 30
+LEVEL_FRAME_Y  = 30
+LEVEL_TEXT_OX  = 15      # Chữ cách lề trái của khung bao nhiêu px
+LEVEL_TEXT_OY  = 8       # Chữ cách lề trên của khung bao nhiêu px
+LEVEL_FBK_W    = 160     # Chiều rộng hộp màu dự phòng
+LEVEL_FBK_H    = 40      # Chiều cao hộp màu dự phòng
+
+# --- BẢNG SCORE (Nằm bên trái Map chơi) ---
+
+SCORE_FRAME_X  = None     
+SCORE_FRAME_Y  = None     
+SCORE_TEXT_OX  = 15      
+SCORE_TEXT_OY  = 15      
+SCORE_BIG_OY   = 55      # Vị trí đặt số điểm to tính từ đỉnh khung xuống
+SCORE_FBK_W    = 150     
+SCORE_FBK_H    = 120     
+
+# --- BẢNG NEXT BLOCK (Nằm bên phải Map chơi) ---
+NEXT_FRAME_X   = None    
+NEXT_FRAME_Y   = None    
+NEXT_FBK_W     = 150     
+NEXT_FBK_H     = 150     
+
+# --- NÚT PAUSE & SETTINGS (Góc trên bên phải màn hình) ---
+BTN_FRAME_X    = SCREEN_WIDTH - 130  
+BTN_FRAME_Y    = 30
+BTN_FBK_W      = 100
+BTN_FBK_H      = 44
+
+
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Tetris - Gach & Vua v2.1 (Giao diện Tối ưu)")
+clock  = pygame.time.Clock()
+
+
+font_large  = pygame.font.SysFont('Arial', 28, bold=True)
+font_medium = pygame.font.SysFont('Arial', 22)
+font_small  = pygame.font.SysFont('Arial', 16)
+
+
+BG_PATH          = "My Tetris/assets/city.png"   
+SCORE_FRAME_PATH = None   
+NEXT_FRAME_PATH  = None   
+LEVEL_FRAME_PATH = None   
+
+def load_background(path, target_w, target_h):
+    
+    try:
+        img = pygame.image.load(path).convert()
+        scaled = pygame.transform.scale(img, (target_w, target_h))
+        print(f"✅ Background loaded: {path}")
+        return scaled
+    except Exception as e:
+        print(f"❌ Background failed ({path}): {e}. Sử dụng nền màu đen.")
+        return None
+
+def load_widget_image(path):
+    
+    if path is None:
+        return None
+    try:
+        img = pygame.image.load(path).convert_alpha()
+        print(f"✅ Widget Image loaded: {path} size={img.get_size()}")
+        return img
+    except Exception as e:
+        print(f"❌ Widget Image failed ({path}): {e}. Dùng hộp màu fallback.")
+        return None
+
+def load_tile(filename):
+    """Giữ nguyên logic load các khối gạch nhỏ trong map của bạn"""
+    try:
+        img = pygame.image.load(f"My Tetris/assets/{filename}").convert_alpha()
+        return pygame.transform.scale(img, (CELL_SIZE, CELL_SIZE))
+    except Exception as e:
+        print(f"❌ Failed to load tile {filename}: {e}")
+        surf = pygame.Surface((CELL_SIZE, CELL_SIZE))
+        surf.fill(GRAY)
+        return surf
+
+
+bg_image        = load_background(BG_PATH, SCREEN_WIDTH, SCREEN_HEIGHT)
+score_frame_img = load_widget_image(SCORE_FRAME_PATH)
+next_frame_img  = load_widget_image(NEXT_FRAME_PATH)
+level_frame_img = load_widget_image(LEVEL_FRAME_PATH)
+
+textures = {
+    'B': load_tile("Gach01.png"),
+    'G': load_tile("Gach02.png"),
+    'R': load_tile("Gach03.png"),
+    'M': load_tile("Vuamem.png"),
+    'V': load_tile("Vuacung.png"),
+    'S': load_tile("Gachcung.png"),
+    'X': load_tile("Vuafill.png"),
+}
+
+
+board                = [[' '] * W for _ in range(H)]
+mortar_placed_time   = [[0]   * W for _ in range(H)]
+block_durability     = [[1]   * W for _ in range(H)]
+
+brick_templates = [
+    [['B','B','B','B']],
+    [[' ','G','G'],['G','G',' ']],
+    [[' ','B',' '],['B','B','B']],
+    [[' ','B','B'],['B','B',' ']],
+    [['B','B',' '],[' ','B','B']],
+    [['B',' ',' '],['B',' ',' '],['B','B',' ']],
+    [[' ',' ','B'],[' ',' ','B'],['B','B',' ']]
+]
+
+mortar_templates = [
+    [['M','M','M','M']],
+    [[' ','V','V'],['V','V',' ']],
+    [[' ','M',' '],['M','M','M']],
+    [[' ','M','M'],['M','M',' ']],
+    [['M','M',' '],[' ','M','M']],
+    [['M',' ',' '],['M',' ',' '],['M','M',' ']],
+    [[' ',' ','M'],[' ',' ','M'],['M','M',' ']]
+]
+
+class Block:
+    def __init__(self, is_brick=True):
+        self.is_brick  = is_brick
+        self.templates = brick_templates if is_brick else mortar_templates
+        self.shape     = random.choice(self.templates)
+        self.x         = W // 2 - 2
+        self.y         = 0
+        self.brick_type = random.choice(['B','G','R']) if is_brick else 'M'
+
+    def rotate(self):
+        rotated    = list(zip(*self.shape[::-1]))
+        self.shape = [list(row) for row in rotated]
+
+def init_board():
+    
+    for i in range(H):
+        for j in range(W):
+            board[i][j] = ' '
+
+
+def can_move(block, dx, dy):
+    
+    for i, row in enumerate(block.shape):
+        for j, cell in enumerate(row):
+            if cell != ' ':
+                tx = block.x + j + dx
+                ty = block.y + i + dy
+                
+                if tx < 0 or tx >= W or ty >= H or ty < 0:
+                    return False
+                if board[ty][tx] != ' ':
+                    return False
+    return True
+
+def place_block(block):
+    for i, row in enumerate(block.shape):
+        for j, cell in enumerate(row):
+            if cell != ' ':
+                x_pos = block.x + j
+                y_pos = block.y + i
+                if 0 <= y_pos < H and 0 <= x_pos < W:
+                    current_time = pygame.time.get_ticks()
+                    if not block.is_brick:
+                        board[y_pos][x_pos] = 'M'
+                        mortar_placed_time[y_pos][x_pos] = current_time
+                    else:
+                        board[y_pos][x_pos] = block.brick_type
+                        if y_pos+1 < H and board[y_pos+1][x_pos] == 'M':
+                            board[y_pos+1][x_pos] = 'X'
+                            block_durability[y_pos+1][x_pos] = 2
+
+def find_falling_brick_above(i, j):
+    for above_i in range(i-1, -1, -1):
+        if board[above_i][j] in ['B','G','R','S']:
+            return above_i
+    return None
+
+def fill_random_hole(i, j):
+    if board[i][j] == ' ' and random.random() < 0.6:
+        board[i][j] = 'R'
+
+def handle_mortar_flow():
+    current_time = pygame.time.get_ticks()
+    for i in range(H-2, 0, -1):
+        for j in range(1, W-1):
+            if board[i][j] == 'M' and current_time - mortar_placed_time[i][j] > 3500:
+                below_i, below_j = i+1, j
+                if board[below_i][below_j] == ' ':
+                    brick_above = find_falling_brick_above(i, j)
+                    if brick_above is not None:
+                        brick_type = board[brick_above][j]
+                        board[brick_above][j] = ' '
+                        board[brick_above+1][j] = brick_type
+                    board[below_i][below_j] = 'M'
+                    mortar_placed_time[below_i][below_j] = current_time
+                    board[i][j] = ' '
+                    mortar_placed_time[i][j] = 0
+                    fill_random_hole(i, j)
+                elif board[below_i][below_j] in ['B','G','R']:
+                    board[below_i][below_j] = 'X'
+                    block_durability[below_i][below_j] = 2
+                    board[i][j] = ' '
+                elif board[below_i][below_j] == 'M':
+                    board[below_i][below_j] = 'V'
+                    block_durability[below_i][below_j] = 1
+                    board[i][j] = ' '
+
+def check_glue_reaction():
+    for i in range(H):
+        for j in range(1, W-1):
+            if board[i][j] in ['B','G','R']:
+                for di in [-1,0,1]:
+                    for dj in [-1,0,1]:
+                        ni, nj = i+di, j+dj
+                        if 0 <= ni < H and 0 <= nj < W and board[ni][nj] == 'X':
+                            board[i][j] = 'S'
+                            block_durability[i][j] = 2
+                            return
+
+def remove_lines():
+    lines_removed = 0
+    i = H-2
+    while i > 0:
+        full_line = all(board[i][j] != ' ' and board[i][j] != '#' for j in range(1, W-1))
+        if full_line:
+            for j in range(1, W-1):
+                if block_durability[i][j] > 1:
+                    block_durability[i][j] -= 1
+                    if block_durability[i][j] == 1:
+                        if board[i][j] in ['S','X']:
+                            board[i][j] = 'B'
+                else:
+                    board[i][j] = ' '
+            for ii in range(i, 1, -1):
+                for j in range(1, W-1):
+                    board[ii][j]              = board[ii-1][j]
+                    block_durability[ii][j]   = block_durability[ii-1][j]
+                    mortar_placed_time[ii][j] = mortar_placed_time[ii-1][j]
+            lines_removed += 1
+        else:
+            i -= 1
+    return lines_removed
+
+# =====================================================================
+#  6. DRAW HELPERS (HÀM PHỤ TRỢ OFFSET TỌA ĐỘ)
+# =====================================================================
+def _cell_rect(col, row):
+    
+    return pygame.Rect(
+        MAP_ORIGIN_X + col * CELL_SIZE,
+        MAP_ORIGIN_Y + row * CELL_SIZE,
+        CELL_SIZE,
+        CELL_SIZE
+    )
+
+def draw_widget_base(frame_img, x, y, fbk_w, fbk_h):
+    
+    if frame_img is not None:
+        screen.blit(frame_img, (x, y))
+        return frame_img.get_width(), frame_img.get_height()
+    else:
+        # Hộp màu bán trong suốt làm dự phòng (Fallback)
+        box = pygame.Surface((fbk_w, fbk_h), pygame.SRCALPHA)
+        pygame.draw.rect(box, (*WIDGET_BG_COLOR, WIDGET_ALPHA), (0, 0, fbk_w, fbk_h), border_radius=10)
+        pygame.draw.rect(box, (*WIDGET_BORDER, 220), (0, 0, fbk_w, fbk_h), 2, border_radius=10)
+        screen.blit(box, (x, y))
+        return fbk_w, fbk_h
+
+# =====================================================================
+#  7. NEW DRAW FUNCTIONS (CÁC HÀM VẼ GIAO DIỆN ĐỘC LẬP TÁCH BIỆT)
+# =====================================================================
+
+def draw_background_screen():
+    
+    if bg_image:
+        screen.blit(bg_image, (0, 0))
+    else:
+        screen.fill(MAP_EMPTY)
+
+    
+    map_fill = pygame.Surface((MAP_W, MAP_H), pygame.SRCALPHA)
+    map_fill.fill((*MAP_FILL_COLOR, MAP_FILL_ALPHA))
+    screen.blit(map_fill, (MAP_ORIGIN_X, MAP_ORIGIN_Y))
+
+    
+    for col in range(W + 1):
+        x = MAP_ORIGIN_X + col * CELL_SIZE
+        pygame.draw.line(screen, GRID_COLOR, (x, MAP_ORIGIN_Y), (x, MAP_ORIGIN_Y + MAP_H), GRID_THICKNESS)
+    for row in range(H + 1):
+        y = MAP_ORIGIN_Y + row * CELL_SIZE
+        pygame.draw.line(screen, GRID_COLOR, (MAP_ORIGIN_X, y), (MAP_ORIGIN_X + MAP_W, y), GRID_THICKNESS)
+
+    
+    x0, y0 = MAP_ORIGIN_X, MAP_ORIGIN_Y
+    x1, y1 = MAP_ORIGIN_X + MAP_W, MAP_ORIGIN_Y + MAP_H
+    pygame.draw.line(screen, WALL_COLOR, (x0, y0), (x1, y0), WALL_THICKNESS)  # Line Trên
+    pygame.draw.line(screen, WALL_COLOR, (x0, y1), (x1, y1), WALL_THICKNESS)  # Line Dưới
+    pygame.draw.line(screen, WALL_COLOR, (x0, y0), (x0, y1), WALL_THICKNESS)  # Line Trái
+    pygame.draw.line(screen, WALL_COLOR, (x1, y0), (x1, y1), WALL_THICKNESS)  # Line Phải
+
+
+def draw_board():
+    
+    for i in range(H):
+        for j in range(W):
+            cell = board[i][j]
+            rect = _cell_rect(j, i)
+            if cell in textures:
+                screen.blit(textures[cell], rect)
+
+
+def draw_block(block):
+    
+    for i, row in enumerate(block.shape):
+        for j, char in enumerate(row):
+            if char != ' ':
+                rect      = _cell_rect(block.x + j, block.y + i)
+                cell_type = block.brick_type if block.is_brick else 'M'
+
+                if cell_type in textures:
+                    screen.blit(textures[cell_type], rect)
+                else:
+                    pygame.draw.rect(screen, (200, 50, 50), rect)
+                pygame.draw.rect(screen, WHITE, rect, 1) # Vẽ viền mảnh cho khối đang rơi
+
+
+def draw_left_panel(score, level):
+    
+    # --- A. VẼ KHUNG LEVEL ---
+    draw_widget_base(level_frame_img, LEVEL_FRAME_X, LEVEL_FRAME_Y, LEVEL_FBK_W, LEVEL_FBK_H)
+    level_surf = font_medium.render(f"LEVEL: {level}", True, WHITE)
+    screen.blit(level_surf, (LEVEL_FRAME_X + LEVEL_TEXT_OX, LEVEL_FRAME_Y + LEVEL_TEXT_OY))
+
+    # --- B. VẼ KHUNG SCORE (Tự tính dịch trái Map nếu config để None) ---
+    sx = SCORE_FRAME_X if SCORE_FRAME_X is not None else MAP_ORIGIN_X - UI_GAP - SCORE_FBK_W
+    sy = SCORE_FRAME_Y if SCORE_FRAME_Y is not None else MAP_ORIGIN_Y + (MAP_H - SCORE_FBK_H) // 2
+
+    actual_w, _ = draw_widget_base(score_frame_img, sx, sy, SCORE_FBK_W, SCORE_FBK_H)
+
+    # Chèn text tiêu đề và điểm số thực tế
+    star_surf = font_medium.render("★ SCORE", True, (255, 210, 0))
+    screen.blit(star_surf, (sx + SCORE_TEXT_OX, sy + SCORE_TEXT_OY))
+
+    score_surf = font_large.render(str(score), True, WHITE)
+    center_x   = sx + (actual_w - score_surf.get_width()) // 2  # Căn chữ vào giữa chiều ngang khung
+    screen.blit(score_surf, (center_x, sy + SCORE_BIG_OY))
+
+
+def draw_right_panel(next_block):
+    
+    # --- A. VẼ KHUNG NÚT PAUSE TĨNH ---
+    draw_widget_base(None, BTN_FRAME_X, BTN_FRAME_Y, BTN_FBK_W, BTN_FBK_H)
+    pause_surf   = font_large.render("II", True, WHITE)
+    setting_surf = font_large.render("⚙", True, (255, 80, 80))
+    screen.blit(pause_surf,   (BTN_FRAME_X + 18, BTN_FRAME_Y + 6))
+    screen.blit(setting_surf, (BTN_FRAME_X + 58, BTN_FRAME_Y + 6))
+
+    # --- B. VẼ KHUNG NEXT BLOCK PREVIEW ---
+    nx = NEXT_FRAME_X if NEXT_FRAME_X is not None else MAP_ORIGIN_X + MAP_W + UI_GAP
+    ny = NEXT_FRAME_Y if NEXT_FRAME_Y is not None else MAP_ORIGIN_Y + (MAP_H - NEXT_FBK_H) // 2
+
+    actual_w, actual_h = draw_widget_base(next_frame_img, nx, ny, NEXT_FBK_W, NEXT_FBK_H)
+
+    # Nhãn tiêu đề NEXT nhỏ xinh góc trên khung
+    next_lbl = font_small.render("NEXT", True, (180, 180, 220))
+    screen.blit(next_lbl, (nx + 12, ny + 12))
+
+    # Thực hiện render mini block tiếp theo vào tâm lòng khung
+    if next_block is not None:
+        preview_cell = CELL_SIZE - 8
+        rows  = len(next_block.shape)
+        cols  = max(len(r) for r in next_block.shape)
+        blk_w = cols * preview_cell
+        blk_h = rows * preview_cell
+        
+        off_x = nx + (actual_w - blk_w) // 2
+        off_y = ny + 30 + (actual_h - 30 - blk_h) // 2
+
+        cell_type = next_block.brick_type if next_block.is_brick else 'M'
+        for i, row in enumerate(next_block.shape):
+            for j, char in enumerate(row):
+                if char != ' ':
+                    r = pygame.Rect(off_x + j * preview_cell, off_y + i * preview_cell, preview_cell - 2, preview_cell - 2)
+                    if cell_type in textures:
+                        t = pygame.transform.scale(textures[cell_type], (preview_cell - 2, preview_cell - 2))
+                        screen.blit(t, r)
+                    else:
+                        pygame.draw.rect(screen, (200, 50, 50), r)
+                    pygame.draw.rect(screen, WHITE, r, 1)
+
+
+def main():
+    init_board()
+
+    score      = 0
+    lines_done = 0
+    level      = 1
+    fall_time  = 0
+    fall_speed = 500
+
+    
+    is_brick      = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
+    current_block = Block(is_brick)
+
+    
+    is_brick_next = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
+    next_block    = Block(is_brick_next)
+
+    running = True
+    while running:
+        current_time = pygame.time.get_ticks()
+
+        
+        handle_mortar_flow()
+        check_glue_reaction()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    running = False
+                if event.key in (pygame.K_LEFT, pygame.K_a) and can_move(current_block, -1, 0):
+                    current_block.x -= 1
+                elif event.key in (pygame.K_RIGHT, pygame.K_d) and can_move(current_block, 1, 0):
+                    current_block.x += 1
+                elif event.key in (pygame.K_UP, pygame.K_w):
+                    current_block.rotate()
+                    if not can_move(current_block, 0, 0):
+                        for _ in range(3):
+                            current_block.rotate()
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    fall_speed = 50
+
+        
+        if current_time - fall_time > fall_speed:
+            if can_move(current_block, 0, 1):
+                current_block.y += 1
+            else:
+                place_block(current_block)
+                removed     = remove_lines()
+                lines_done += removed
+                score      += removed * 100 * level
+                level       = lines_done // 10 + 1   
+                fall_speed  = max(100, 500 - (level - 1) * 40)  
+
+                
+                current_block = next_block
+                is_brick_next = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
+                next_block    = Block(is_brick_next)
+                fall_speed    = max(100, 500 - (level - 1) * 40)
+
+                if not can_move(current_block, 0, 0):
+                    running = False
+
+            fall_time = current_time
+
+        
+        draw_background_screen()   
+        draw_board()        
+        
+        draw_block(current_block)  
+        
+        draw_left_panel(score, level)   
+        draw_right_panel(next_block)                
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    main()
