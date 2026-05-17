@@ -3,13 +3,13 @@ import random
 import sys
 
 pygame.init()
-
+pygame.mixer.init()
 # =====================================================================
 #  1. CONSTANTS (HẰNG SỐ CẤU HÌNH HỆ THỐNG)
 # =====================================================================
-H = 15
+H = 18
 W = 10
-CELL_SIZE = 35          
+CELL_SIZE = 28          
 
 MAP_W = W * CELL_SIZE   
 MAP_H = H * CELL_SIZE   
@@ -74,6 +74,10 @@ NEXT_FBK_H     = 150
 PAUSE_BTN_X, PAUSE_BTN_Y = SCREEN_WIDTH - 140, 30
 SETTING_BTN_X, SETTING_BTN_Y = SCREEN_WIDTH - 70, 30
 BTN_SIZE = 44  
+
+#Am Nhac
+MUSIC_PATH    = "My Tetris/music/bg music.mp3"  
+MUSIC_VOLUME  = 0.5
 
 # =====================================================================
 #  4. DISPLAY SETUP & ASSETS LOADING
@@ -505,7 +509,7 @@ def draw_pause_overlay():
     return pygame.Rect(x, y, w, h)
 
 
-def draw_setting_popup(sound_on):
+def draw_setting_popup(sound_on, volume):
     w, h = 320, 260  
     x = (SCREEN_WIDTH - w) // 2
     y = (SCREEN_HEIGHT - h) // 2
@@ -524,7 +528,6 @@ def draw_setting_popup(sound_on):
     lbl_sound = font_medium.render("Sound:", True, WHITE)
     screen.blit(lbl_sound, (x + 40, y + 80))
     
-    
     sound_btn_rect = pygame.Rect(x + 160, y + 75, 110, 35)
     active_img = sound_on_btn_img if sound_on else sound_off_btn_img
     
@@ -537,22 +540,46 @@ def draw_setting_popup(sound_on):
         pygame.draw.rect(screen, btn_color, sound_btn_rect, border_radius=5)
         txt_s = font_medium.render(btn_text, True, WHITE)
         screen.blit(txt_s, (sound_btn_rect.x + (sound_btn_rect.width - txt_s.get_width())//2, sound_btn_rect.y + 5))
-    
-    
-    exit_btn_rect = pygame.Rect(x + 40, y + 140, 240, 40)
+
+    # --- THANH CHỈNH ÂM LƯỢNG ---
+    lbl_vol = font_medium.render("Volume:", True, WHITE)
+    screen.blit(lbl_vol, (x + 40, y + 130))
+
+    bar_x  = x + 40          # điểm bắt đầu thanh trượt
+    bar_y  = y + 160          # chiều dọc thanh trượt
+    bar_w  = 240              # chiều dài thanh trượt
+    bar_h  = 8                # chiều dày thanh
+    handle_r = 9              # bán kính nút kéo
+
+    # Vẽ nền thanh (màu xám)
+    pygame.draw.rect(screen, GRAY, (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+    # Vẽ phần đã fill (màu xanh lá)
+    fill_w = int(volume * bar_w)
+    pygame.draw.rect(screen, COLOR_GREEN, (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+    # Vẽ nút kéo (hình tròn)
+    handle_x = bar_x + fill_w
+    pygame.draw.circle(screen, WHITE, (handle_x, bar_y + bar_h // 2), handle_r)
+
+    # Hiển thị % âm lượng
+    vol_pct = font_small.render(f"{int(volume * 100)}%", True, WHITE)
+    screen.blit(vol_pct, (bar_x + bar_w + 8, bar_y - 2))
+
+    # Rect để bắt sự kiện click/drag trên thanh (vùng rộng hơn thanh 1 chút)
+    volume_bar_rect = pygame.Rect(bar_x, bar_y - 10, bar_w, bar_h + 20)
+
+    exit_btn_rect = pygame.Rect(x + 40, y + 200, 240, 40)
     if exit_btn_img is not None:
         scaled_exit_btn = pygame.transform.scale(exit_btn_img, (exit_btn_rect.width, exit_btn_rect.height))
         screen.blit(scaled_exit_btn, (exit_btn_rect.x, exit_btn_rect.y))
     else:
-        
         pygame.draw.rect(screen, (192, 57, 43), exit_btn_rect, border_radius=6)
         txt_e = font_medium.render("Exit Game", True, WHITE)
         screen.blit(txt_e, (exit_btn_rect.x + (exit_btn_rect.width - txt_e.get_width())//2, exit_btn_rect.y + 7))
     
     hint_txt = font_small.render("* Press any key to resume game", True, (180, 180, 200))
-    screen.blit(hint_txt, (x + (w - hint_txt.get_width())//2, y + 205))
+    screen.blit(hint_txt, (x + (w - hint_txt.get_width())//2, y + 245))
     
-    return sound_btn_rect, exit_btn_rect
+    return sound_btn_rect, exit_btn_rect, volume_bar_rect
 
 # =====================================================================
 #  9. HÀM NÚT BẤM BÀN PHÍM RIÊNG CHO PAUSE (ENTER TO PAUSE)
@@ -566,6 +593,21 @@ def handle_pause_input(event, current_state):
                 return "PLAYING"
     return current_state
 
+def init_background_music(path, volume):
+    
+    try:
+        pygame.mixer.music.load(path)
+        pygame.mixer.music.set_volume(volume)
+        pygame.mixer.music.play(-1)  # Tham số -1 giúp nhạc tự động lặp lại liên tục
+        print(f"🎵 Đã bật nhạc nền: {path}")
+    except Exception as e:
+        print(f"⚠️ Không thể nạp nhạc nền ({path}): {e}. Chơi game không có nhạc.")
+
+def stop_background_music():
+    
+    if pygame.mixer.music.get_busy():
+        pygame.mixer.music.stop()
+        print("🛑 Đã dừng nhạc nền do trò chơi kết thúc.")
 
 def main():
     init_board()
@@ -579,12 +621,17 @@ def main():
 
     game_state = "PLAYING" 
     sound_on   = True      
+    volume     = MUSIC_VOLUME   # --- NHẠC NỀN: Biến lưu âm lượng (0.0 → 1.0), chỉnh tại MUSIC_VOLUME ---
+    dragging_volume = False     # --- NHẠC NỀN: Đang kéo thanh âm lượng không? ---
 
     is_brick      = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
     current_block = Block(is_brick)
 
     is_brick_next = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
     next_block    = Block(is_brick_next)
+
+    # --- NHẠC NỀN: Bắt đầu khi trò chơi khởi động ---
+    init_background_music(MUSIC_PATH, MUSIC_VOLUME)
 
     running = True
     while running:
@@ -608,9 +655,16 @@ def main():
                         game_state = "SETTINGS"
                         
                 elif game_state == "SETTINGS":
-                    sound_rect, exit_rect = draw_setting_popup(sound_on) 
+                    sound_rect, exit_rect, vol_rect = draw_setting_popup(sound_on, volume)
                     if sound_rect.collidepoint(mx, my):
-                        sound_on = not sound_on 
+                        sound_on = not sound_on
+                        # --- NHẠC NỀN: Bật/tắt nhạc khi bấm nút Sound ---
+                        if sound_on:
+                            pygame.mixer.music.set_volume(volume)
+                        else:
+                            pygame.mixer.music.set_volume(0)
+                    elif vol_rect.collidepoint(mx, my):
+                        dragging_volume = True   # bắt đầu kéo thanh âm lượng
                     elif exit_rect.collidepoint(mx, my):
                         print("Quay trở lại màn hình chờ (Hành động giữ chỗ)...")
                         
@@ -624,9 +678,25 @@ def main():
                         fall_speed = 500
                         is_brick = random.choices([True, True, True, False], weights=[1,1,1,0.33])[0]
                         current_block = Block(is_brick)
+                        init_background_music(MUSIC_PATH, MUSIC_VOLUME)  # --- NHẠC NỀN: Phát lại khi chơi lại ---
                         game_state = "PLAYING"
                     elif back_rect.collidepoint(mx, my):
                         print("Quay trở lại màn hình chờ...")
+
+            # --- NHẠC NỀN: Thả chuột → dừng kéo thanh âm lượng ---
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                dragging_volume = False
+
+            # --- NHẠC NỀN: Di chuyển chuột → cập nhật âm lượng nếu đang kéo ---
+            elif event.type == pygame.MOUSEMOTION:
+                if dragging_volume and game_state == "SETTINGS":
+                    bar_x = (SCREEN_WIDTH - 320) // 2 + 40   # phải khớp với bar_x trong draw_setting_popup
+                    bar_w = 240
+                    mx_now = event.pos[0]
+                    # Tính volume từ vị trí chuột, kẹp trong [0.0, 1.0]
+                    volume = max(0.0, min(1.0, (mx_now - bar_x) / bar_w))
+                    if sound_on:
+                        pygame.mixer.music.set_volume(volume)   # áp dụng ngay lập tức
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
@@ -668,6 +738,7 @@ def main():
                     if not can_move(current_block, 0, 0):
                         if score > high_score:
                             high_score = score
+                        stop_background_music()   # --- NHẠC NỀN: Dừng khi thua ---
                         game_state = "GAMEOVER"
 
                 fall_time = current_time
@@ -681,7 +752,7 @@ def main():
         if game_state == "PAUSED":
             draw_pause_overlay()
         elif game_state == "SETTINGS":
-            draw_setting_popup(sound_on)
+            draw_setting_popup(sound_on, volume)
         elif game_state == "GAMEOVER":
             draw_lose_popup(score, high_score)
 
