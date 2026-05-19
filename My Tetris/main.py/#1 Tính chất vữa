@@ -51,8 +51,8 @@ COLOR_SETTING_BG = (25, 25, 50)
 COLOR_GREEN      = (46, 204, 113)
 
 # =====================================================================
-#  3. [HÀM ĐIỀU CHỈNH VỊ TRÍ] CẤU HÌNH VỊ TRÍ & KÍCH THƯỚC CÁC NÚT BẤM
-#  (Sinh viên chỉ cần sửa số ở đây để di chuyển nút bấm tùy ý)
+#  CẤU HÌNH VỊ TRÍ & KÍCH THƯỚC CÁC NÚT BẤM
+#  
 # =====================================================================
 LEVEL_FRAME_X  = 30
 LEVEL_FRAME_Y  = 30
@@ -78,23 +78,23 @@ PAUSE_BTN_X, PAUSE_BTN_Y = SCREEN_WIDTH - 140, 30
 SETTING_BTN_X, SETTING_BTN_Y = SCREEN_WIDTH - 70, 30
 BTN_SIZE = 44  
 
-# --- [MỚI] TỌA ĐỘ VÀ KÍCH THƯỚC CỦA 4 NÚT MÀN HÌNH CHÍNH (MAIN MENU) ---
-MENU_BTN_W  = 200
-MENU_BTN_H  = 45
-MENU_START_X, MENU_START_Y     = (SCREEN_WIDTH - MENU_BTN_W) // 2, 220
-MENU_LOAD_X, MENU_LOAD_Y       = (SCREEN_WIDTH - MENU_BTN_W) // 2, 285
-MENU_OPTIONS_X, MENU_OPTIONS_Y = (SCREEN_WIDTH - MENU_BTN_W) // 2, 350
-MENU_EXIT_X, MENU_EXIT_Y       = (SCREEN_WIDTH - MENU_BTN_W) // 2, 415
+
+MENU_BTN_W  = 150
+MENU_BTN_H  = 50
+MENU_START_X, MENU_START_Y     = (SCREEN_WIDTH - MENU_BTN_W) // 4, 220
+MENU_LOAD_X, MENU_LOAD_Y       = (SCREEN_WIDTH - MENU_BTN_W) // 4 , 285
+MENU_OPTIONS_X, MENU_OPTIONS_Y = (SCREEN_WIDTH - MENU_BTN_W) // 4, 350
+MENU_EXIT_X, MENU_EXIT_Y       = (SCREEN_WIDTH - MENU_BTN_W) // 4, 415
 
 # Âm Nhạc
 MUSIC_PATH    = "My Tetris/music/bg music.mp3"  
 MUSIC_VOLUME  = 0.5
 
 # =====================================================================
-#  4. [HÀM ĐỂ CHÈN HÌNH] ĐƯỜNG DẪN TÀI NGUYÊN HÌNH ẢNH
-#  (Để None nếu chưa có ảnh -> Hệ thống tự vẽ hộp màu dự phòng theo kích thước trên)
+#  4.  ĐƯỜNG DẪN TÀI NGUYÊN HÌNH ẢNH 
 # =====================================================================
 BG_PATH          = "My Tetris/assets/city.png"   
+MENU_BG_PATH     = "My Tetris/assets/bg menu.png"  
 SCORE_FRAME_PATH = None   
 NEXT_FRAME_PATH  = None   
 LEVEL_FRAME_PATH = None   
@@ -104,17 +104,16 @@ SETTING_ICON_PATH = None
 LOSE_FRAME_PATH   = None  
 SETTING_FRAME_PATH= None  
 
-# Ảnh trạng thái nút bấm trong các bảng Pop-up
+
 PLAY_BTN_PATH     = None  
 BACK_BTN_PATH     = None  
 SOUND_ON_PATH     = None  
 SOUND_OFF_PATH    = None  
 EXIT_BTN_PATH     = None  
 
-# --- [MỚI] ĐƯỜNG DẪN ẢNH SPRITE CHO 4 NÚT MÀN HÌNH CHÍNH (Default và Pressed/Hover) ---
-MENU_START_DEFAULT_PATH = "My Tetris/assets/button/start.png"   # Ví dụ: "My Tetris/assets/menu/start_default.png"
-MENU_START_HOVER_PATH   = "My Tetris/assets/button/start_pressed.png"   # Ví dụ: "My Tetris/assets/menu/start_pressed.png"
 
+MENU_START_DEFAULT_PATH = "My Tetris/assets/button/start.png"   
+MENU_START_HOVER_PATH   = "My Tetris/assets/button/start_pressed.png"  
 MENU_LOAD_DEFAULT_PATH  = "My Tetris/assets/button/load.png"
 MENU_LOAD_HOVER_PATH    = "My Tetris/assets/button/load_pressed.png"
 
@@ -125,15 +124,15 @@ MENU_EXIT_DEFAULT_PATH  = "My Tetris/assets/button/exit.png"
 MENU_EXIT_HOVER_PATH    = "My Tetris/assets/button/exit_pressed.png"
 
 # =====================================================================
-#  5. LOADING & AUTO-SCALING FUNCTIONS (HÀM TỰ ĐỘNG CO GIÃN HÌNH ẢNH)
+#  CO GIÃN HÌNH ẢNH
 # =====================================================================
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Tetris - Gach & Vua v2.1 (Giao diện Tối ưu)")
 clock  = pygame.time.Clock()
 
-font_large  = pygame.font.SysFont('Arial', 28, bold=True)
-font_medium = pygame.font.SysFont('Arial', 22)
-font_small  = pygame.font.SysFont('Arial', 16)
+font_large  = pygame.font.SysFont('Arial', 33, bold=True)
+font_medium = pygame.font.SysFont('Arial', 27)
+font_small  = pygame.font.SysFont('Arial', 21)
 
 def load_background(path, target_w, target_h):
     try:
@@ -159,7 +158,7 @@ def load_icon_image(path, size_w, size_h):
     except Exception as e:
         return None
 
-# --- [MỚI] Hàm hỗ trợ nạp ảnh và tự động scale vừa khít ô giả lập có sẵn ---
+
 def load_and_scale_image(path, target_w, target_h):
     """ Tải ảnh lên và tự động điều chỉnh kích thước để fit với kích thước giả lập ô đã tạo """
     if path is None:
@@ -180,8 +179,9 @@ def load_tile(filename):
         surf.fill(GRAY)
         return surf
 
-# Khởi chạy nạp tài nguyên hệ thống
+
 bg_image         = load_background(BG_PATH, SCREEN_WIDTH, SCREEN_HEIGHT)
+menu_bg_image    = load_background(MENU_BG_PATH, SCREEN_WIDTH, SCREEN_HEIGHT) if MENU_BG_PATH else bg_image
 score_frame_img  = load_widget_image(SCORE_FRAME_PATH)
 next_frame_img   = load_widget_image(NEXT_FRAME_PATH)
 level_frame_img  = load_widget_image(LEVEL_FRAME_PATH)
@@ -197,7 +197,7 @@ sound_on_btn_img  = load_widget_image(SOUND_ON_PATH)
 sound_off_btn_img = load_widget_image(SOUND_OFF_PATH)
 exit_btn_img      = load_widget_image(EXIT_BTN_PATH)
 
-# --- [MỚI] Tự động load và scale các sprite nút bấm của màn hình chính vừa khít kích thước giả lập ---
+
 menu_start_def  = load_and_scale_image(MENU_START_DEFAULT_PATH, MENU_BTN_W, MENU_BTN_H)
 menu_start_hov  = load_and_scale_image(MENU_START_HOVER_PATH, MENU_BTN_W, MENU_BTN_H)
 
@@ -226,6 +226,7 @@ textures = {
 board                = [[' '] * W for _ in range(H)]
 mortar_placed_time   = [[0]   * W for _ in range(H)]
 block_durability     = [[1]   * W for _ in range(H)]
+game_history         = []   # lưu tối đa 10 lần chơi: [(score, lines, level), ...]
 
 brick_templates = [
     [['B','B','B','B']],
@@ -433,10 +434,6 @@ def draw_block(block):
                 pygame.draw.rect(screen, WHITE, rect, 1) 
 
 def draw_left_panel(score, level):
-    draw_widget_base(level_frame_img, LEVEL_FRAME_X, LEVEL_FRAME_Y, LEVEL_FBK_W, LEVEL_FBK_H)
-    level_surf = font_medium.render(f"LEVEL: {level}", True, WHITE)
-    screen.blit(level_surf, (LEVEL_FRAME_X + LEVEL_TEXT_OX, LEVEL_FRAME_Y + LEVEL_TEXT_OY))
-
     sx = SCORE_FRAME_X if SCORE_FRAME_X is not None else MAP_ORIGIN_X - UI_GAP - SCORE_FBK_W
     sy = SCORE_FRAME_Y if SCORE_FRAME_Y is not None else MAP_ORIGIN_Y + (MAP_H - SCORE_FBK_H) // 2
 
@@ -492,7 +489,7 @@ def draw_right_panel(next_block):
                     pygame.draw.rect(screen, WHITE, r, 1)
 
 # =====================================================================
-#  8. POPUP OVERLAYS FUNCTIONS (CÁC BẢNG HIỂN THỊ TRUNG TÂM)
+#  BANG POPUP
 # =====================================================================
 def get_button_rect(x, y, w, h):
     return pygame.Rect(x, y, w, h)
@@ -620,7 +617,7 @@ def draw_setting_popup(sound_on, volume):
     return sound_btn_rect, exit_btn_rect, volume_bar_rect
 
 # =====================================================================
-#  9. [MỚI] HÀM VẼ NÚT BẤM HOVER CHUYỂN SPRITE CHO MÀN HÌNH CHÍNH
+#  VẼ NÚT BẤM HOVER CHUYỂN SPRITE CHO MÀN HÌNH CHÍNH
 # =====================================================================
 def draw_menu_button(rect, def_img, hov_img, text, fallback_color):
     """
@@ -628,37 +625,73 @@ def draw_menu_button(rect, def_img, hov_img, text, fallback_color):
     Nếu chưa chèn ảnh, tự vẽ hộp màu có sẵn vừa khít vị trí đã định.
     """
     mx, my = pygame.mouse.get_pos()
-    is_hover = rect.collidepoint(mx, my) # Kiểm tra xem con trỏ chuột có đang nằm trên nút không
+    is_hover = rect.collidepoint(mx, my) 
 
     if is_hover and hov_img is not None:
         screen.blit(hov_img, (rect.x, rect.y))
     elif not is_hover and def_img is not None:
         screen.blit(def_img, (rect.x, rect.y))
     else:
-        # Cơ chế Fallback dự phòng: Tự động vẽ bằng code hình chữ nhật bo góc
+        
         current_color = (max(0, fallback_color[0]-40), max(0, fallback_color[1]-40), max(0, fallback_color[2]-40)) if is_hover else fallback_color
         box = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
         pygame.draw.rect(box, (*current_color, 240), (0, 0, rect.width, rect.height), border_radius=8)
         pygame.draw.rect(box, WIDGET_BORDER, (0, 0, rect.width, rect.height), 2, border_radius=8)
         screen.blit(box, (rect.x, rect.y))
         
-        # Vẽ chữ tiêu đề nút
+        
         btn_txt = font_medium.render(text, True, WHITE)
         screen.blit(btn_txt, (rect.x + (rect.width - btn_txt.get_width())//2, rect.y + (rect.height - btn_txt.get_height())//2))
 
+def draw_history_popup():
+    w, h = 420, 460
+    x = (SCREEN_WIDTH - w) // 2
+    y = (SCREEN_HEIGHT - h) // 2
+
+    popup = pygame.Surface((w, h), pygame.SRCALPHA)
+    popup.fill((*COLOR_LOSE_BG, 245))
+    pygame.draw.rect(popup, WALL_COLOR, (0, 0, w, h), 3, border_radius=12)
+    screen.blit(popup, (x, y))
+
+    title = font_large.render("LỊCH SỬ CHƠI", True, (241, 196, 15))
+    screen.blit(title, (x + (w - title.get_width()) // 2, y + 18))
+
+    headers = ["#", "Score", "Lines", "Level"]
+    col_xs  = [x + 30, x + 110, x + 230, x + 330]
+    row_y   = y + 70
+    for idx, (hdr, cx) in enumerate(zip(headers, col_xs)):
+        h_surf = font_small.render(hdr, True, (180, 180, 220))
+        screen.blit(h_surf, (cx, row_y))
+    pygame.draw.line(screen, WIDGET_BORDER, (x + 20, row_y + 26), (x + w - 20, row_y + 26), 1)
+
+    if not game_history:
+        no_data = font_medium.render("Chưa có lần chơi nào.", True, GRAY)
+        screen.blit(no_data, (x + (w - no_data.get_width()) // 2, y + 200))
+    else:
+        for rank, (sc, ln, lv) in enumerate(game_history, 1):
+            ry = row_y + 36 + (rank - 1) * 34
+            row_color = (255, 215, 0) if rank == 1 else WHITE
+            for val, cx in zip([str(rank), str(sc), str(ln), str(lv)], col_xs):
+                surf = font_small.render(val, True, row_color)
+                screen.blit(surf, (cx, ry))
+            if rank < len(game_history):
+                pygame.draw.line(screen, (50, 50, 80), (x + 20, ry + 28), (x + w - 20, ry + 28), 1)
+
+    close_rect = pygame.Rect(x + (w - 120) // 2, y + h - 55, 120, 38)
+    pygame.draw.rect(screen, DARK_GRAY, close_rect, border_radius=6)
+    close_txt = font_medium.render("Đóng", True, WHITE)
+    screen.blit(close_txt, (close_rect.x + (close_rect.width - close_txt.get_width()) // 2,
+                             close_rect.y + (close_rect.height - close_txt.get_height()) // 2))
+    return close_rect
+
 def draw_main_menu():
     """ Hàm render toàn bộ khung giao diện của Màn hình chính """
-    # 1. Vẽ hình nền full screen phía dưới cùng
-    if bg_image:
-        screen.blit(bg_image, (0, 0))
+    
+    if menu_bg_image:
+        screen.blit(menu_bg_image, (0, 0))
     else:
         screen.fill(MAP_EMPTY)
         
-    # 2. Vẽ Tiêu đề game to đẹp ở giữa phía trên
-    title_txt = font_large.render("T E T R I S", True, (241, 196, 15))
-    screen.blit(title_txt, ((SCREEN_WIDTH - title_txt.get_width()) // 2, 120))
-    
-    # 3. Tiến hành vẽ 4 nút bấm dựa vào tọa độ và sprite đã thiết lập sẵn ở mục 3 & 4
     start_rect = get_button_rect(MENU_START_X, MENU_START_Y, MENU_BTN_W, MENU_BTN_H)
     load_rect  = get_button_rect(MENU_LOAD_X, MENU_LOAD_Y, MENU_BTN_W, MENU_BTN_H)
     opts_rect  = get_button_rect(MENU_OPTIONS_X, MENU_OPTIONS_Y, MENU_BTN_W, MENU_BTN_H)
@@ -695,9 +728,7 @@ def stop_background_music():
         pygame.mixer.music.stop()
         print("🛑 Đã dừng nhạc nền do trò chơi kết thúc.", flush=True)
 
-# =====================================================================
-#  11. MAIN LOOP (VÒNG LẶP CHÍNH CỦA HỆ THỐNG GAME)
-# =====================================================================
+
 def main():
     init_board()
 
@@ -708,9 +739,10 @@ def main():
     fall_speed = 500
     high_score = 0  
 
-    # --- [THAY ĐỔI] Game bắt đầu khởi động từ màn hình chính MAIN_MENU ---
+    
     game_state      = "MAIN_MENU" 
-    prev_game_state = "MAIN_MENU" # Biến trạng thái phụ để ghi nhớ luồng chuyển cảnh của Setting
+    prev_game_state = "MAIN_MENU" 
+    show_history    = False
     sound_on        = True      
     volume          = MUSIC_VOLUME   
     dragging_volume = False     
@@ -733,16 +765,20 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             
-            # Xử lý nút tạm dừng bằng phím Enter
+            
             game_state = handle_pause_input(event, game_state)
                 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 
-                # --- [MỚI BỔ SUNG] BẮT SỰ KIỆN CLICK CHUỘT TRÊN MÀN HÌNH CHÍNH ---
+                
                 if game_state == "MAIN_MENU":
-                    if get_button_rect(MENU_START_X, MENU_START_Y, MENU_BTN_W, MENU_BTN_H).collidepoint(mx, my):
-                        # Khởi tạo hoặc Reset lại toàn bộ thông số game khi bấm chơi mới
+                    if show_history:
+                        close_rect = draw_history_popup()
+                        if close_rect.collidepoint(mx, my):
+                            show_history = False
+                    elif get_button_rect(MENU_START_X, MENU_START_Y, MENU_BTN_W, MENU_BTN_H).collidepoint(mx, my):
+                        
                         init_board()
                         score, lines_done, level, fall_speed = 0, 0, 1, 500
                         current_block = Block(random.choices([True, True, True, False], weights=[1,1,1,0.33])[0])
@@ -750,16 +786,16 @@ def main():
                         init_background_music(MUSIC_PATH, volume if sound_on else 0)
                         game_state = "PLAYING"
                     elif get_button_rect(MENU_LOAD_X, MENU_LOAD_Y, MENU_BTN_W, MENU_BTN_H).collidepoint(mx, my):
-                        print("Tính năng LOAD đang được xây dựng...", flush=True)
+                        show_history = True
                     elif get_button_rect(MENU_OPTIONS_X, MENU_OPTIONS_Y, MENU_BTN_W, MENU_BTN_H).collidepoint(mx, my):
-                        prev_game_state = "MAIN_MENU" # Ghi nhớ mở Setting từ màn hình chính
+                        prev_game_state = "MAIN_MENU" 
                         game_state = "SETTINGS"
                     elif get_button_rect(MENU_EXIT_X, MENU_EXIT_Y, MENU_BTN_W, MENU_BTN_H).collidepoint(mx, my):
                         running = False
               
                 elif game_state == "PLAYING":
                     if get_button_rect(SETTING_BTN_X, SETTING_BTN_Y, BTN_SIZE, BTN_SIZE).collidepoint(mx, my):
-                        prev_game_state = "PLAYING" # Ghi nhớ mở Setting khi đang xếp gạch
+                        prev_game_state = "PLAYING" 
                         game_state = "SETTINGS"
                         
                 elif game_state == "SETTINGS":
@@ -773,7 +809,7 @@ def main():
                     elif vol_rect.collidepoint(mx, my):
                         dragging_volume = True   
                     elif exit_rect.collidepoint(mx, my):
-                        # --- [THAY ĐỔI] Thực hiện quay trở lại màn hình chính thay vì in nháp chữ ---
+                        
                         stop_background_music()
                         game_state = "MAIN_MENU"
                         
@@ -787,7 +823,7 @@ def main():
                         init_background_music(MUSIC_PATH, volume if sound_on else 0)  
                         game_state = "PLAYING"
                     elif back_rect.collidepoint(mx, my):
-                        # --- [THAY ĐỔI] Thực hiện chuyển hướng quay trở lại màn hình chính ---
+                        
                         game_state = "MAIN_MENU"
 
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -807,7 +843,7 @@ def main():
                     running = False
                 
                 if game_state == "SETTINGS":
-                    # Nhấn nút bất kỳ đóng Setting, quay lại trạng thái trước đó (Màn hình chính hoặc Đang chơi)
+                    
                     game_state = prev_game_state
                 
                 elif game_state == "PLAYING":
@@ -843,16 +879,21 @@ def main():
                     if not can_move(current_block, 0, 0):
                         if score > high_score:
                             high_score = score
+                        game_history.insert(0, (score, lines_done, level))
+                        if len(game_history) > 10:
+                            game_history.pop()
                         stop_background_music()   
                         game_state = "GAMEOVER"
 
                 fall_time = current_time
 
-        # --- TIẾN HÀNH GỌI CÁC LỚP RENDERING ĐÈ LÊN NHAU TÙY THEO STATE ---
+
         if game_state == "MAIN_MENU":
             draw_main_menu()
+            if show_history:
+                draw_history_popup()
         else:
-            # Nếu không ở màn hình chờ, vẽ bảng game chơi bình thường
+            
             draw_background_screen()   
             draw_board()       
             draw_block(current_block)  
