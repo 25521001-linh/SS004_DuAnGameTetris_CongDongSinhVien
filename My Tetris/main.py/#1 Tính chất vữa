@@ -11,6 +11,7 @@ pygame.mixer.init()
 # =====================================================================
 #  1. CONSTANTS (HẰNG SỐ CẤU HÌNH HỆ THỐNG)
 # =====================================================================
+import os
 H = 18
 W = 10
 CELL_SIZE = 28          
@@ -55,6 +56,7 @@ COLOR_GREEN      = (46, 204, 113)
 #  3. [HÀM ĐIỀU CHỈNH VỊ TRÍ] CẤU HÌNH VỊ TRÍ & KÍCH THƯỚC CÁC NÚT BẤM
 #  (Sinh viên chỉ cần sửa số ở đây để di chuyển nút bấm tùy ý)
 # =====================================================================
+import os
 LEVEL_FRAME_X  = 30
 LEVEL_FRAME_Y  = 30
 LEVEL_TEXT_OX  = 15      
@@ -88,8 +90,9 @@ MENU_OPTIONS_X, MENU_OPTIONS_Y = (SCREEN_WIDTH - MENU_BTN_W) // 2, 350
 MENU_EXIT_X, MENU_EXIT_Y       = (SCREEN_WIDTH - MENU_BTN_W) // 2, 415
 
 # Âm Nhạc
-MUSIC_PATH    = "My Tetris/music/bg music.mp3"  
-MUSIC_VOLUME  = 0.5
+MUSIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "My Tetris", "music")
+MUSIC_PATH = "My Tetris_music_bg music.mp3"
+MUSIC_VOLUME = 0.5
 
 # =====================================================================
 #  4. [HÀM ĐỂ CHÈN HÌNH] ĐƯỜNG DẪN TÀI NGUYÊN HÌNH ẢNH
@@ -733,13 +736,15 @@ def handle_pause_input(event, current_state):
     return current_state
 
 def init_background_music(path, volume):
+    print(f"🔍 Đang thử nạp nhạc từ: {path}", flush=True)  # Debug
+    print(f"🔍 File tồn tại: {os.path.exists(path)}", flush=True)  # Debug
     try:
         pygame.mixer.music.load(path)
         pygame.mixer.music.set_volume(volume)
         pygame.mixer.music.play(-1)  
         print(f"🎵 Đã bật nhạc nền: {path}", flush=True)
     except Exception as e:
-        print(f"⚠️ Không thể nạp nhạc nền ({path}): {e}. Chơi game không có nhạc.", flush=True)
+        print(f"⚠️ Không thể nạp nhạc nền ({path}): {e}", flush=True)
 
 def stop_background_music():
     if pygame.mixer.music.get_busy():
